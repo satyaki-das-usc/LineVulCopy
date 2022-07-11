@@ -1,0 +1,1269 @@
+,Unnamed: 0,index,Access Gained,Attack Origin,Authentication Required,Availability,CVE ID,CVE Page,CWE ID,Complexity,Confidentiality,Integrity,Known Exploits,Publish Date,Score,Summary,Update Date,Vulnerability Classification,add_lines,codeLink,commit_id,commit_message,del_lines,file_name,files_changed,func_after,func_before,lang,lines_after,lines_before,parentID,patch,project,project_after,project_before,target,vul_func_with_fix,processed_func,flaw_line,flaw_line_index,Unnamed: 40,Unnamed: 41,Unnamed: 42,Unnamed: 43,Unnamed: 44
+0,1,1,None,Remote,Not required,Partial,CVE-2022-0609,https://www.cvedetails.com/cve-details.php?t=1&cve_id=CVE-2022-0609,CWE-416,Medium,Partial,Partial,,2022-04-05,6.8,Use after free in Animation in Google Chrome prior to 98.0.4758.102 allowed a remote attacker to potentially exploit heap corruption via a crafted HTML page.,2022-04-08,,,,,,,,,,,,,,,,,,,1,"Node* RepresentationChanger::GetWord32RepresentationFor(
+    Node* node, MachineRepresentation output_rep, Type output_type,
+    Node* use_node, UseInfo use_info) {
+  // Eagerly fold representation changes for constants.
+  switch (node->opcode()) {
+    case IrOpcode::kInt32Constant:
+    case IrOpcode::kInt64Constant:
+    case IrOpcode::kFloat32Constant:
+    case IrOpcode::kFloat64Constant:
+      UNREACHABLE();
+    case IrOpcode::kNumberConstant: {
+      double const fv = OpParameter<double>(node->op());
+      if (use_info.type_check() == TypeCheckKind::kNone ||
+          ((use_info.type_check() == TypeCheckKind::kSignedSmall ||
+            use_info.type_check() == TypeCheckKind::kSigned32 ||
+            use_info.type_check() == TypeCheckKind::kNumber ||
+            use_info.type_check() == TypeCheckKind::kNumberOrOddball ||
+            use_info.type_check() == TypeCheckKind::kArrayIndex) &&
+           IsInt32Double(fv))) {
+        return MakeTruncatedInt32Constant(fv);
+      }
+      break;
+    }
+    default:
+      break;
+  }
+
+  // Select the correct X -> Word32 operator.
+  const Operator* op = nullptr;
+  if (output_type.Is(Type::None())) {
+    // This is an impossible value; it should not be used at runtime.
+    return jsgraph()->graph()->NewNode(
+        jsgraph()->common()->DeadValue(MachineRepresentation::kWord32), node);
+  } else if (output_rep == MachineRepresentation::kBit) {
+    CHECK(output_type.Is(Type::Boolean()));
+    if (use_info.truncation().IsUsedAsWord32()) {
+      return node;
+    } else {
+      CHECK(Truncation::Any(kIdentifyZeros)
+                .IsLessGeneralThan(use_info.truncation()));
+      CHECK_NE(use_info.type_check(), TypeCheckKind::kNone);
+      CHECK_NE(use_info.type_check(), TypeCheckKind::kNumberOrOddball);
+      Node* unreachable =
+          InsertUnconditionalDeopt(use_node, DeoptimizeReason::kNotASmi);
+      return jsgraph()->graph()->NewNode(
+          jsgraph()->common()->DeadValue(MachineRepresentation::kWord32),
+          unreachable);
+    }
+  } else if (output_rep == MachineRepresentation::kFloat64) {
+    if (output_type.Is(Type::Signed32())) {
+      op = machine()->ChangeFloat64ToInt32();
+    } else if (use_info.type_check() == TypeCheckKind::kSignedSmall ||
+               use_info.type_check() == TypeCheckKind::kSigned32 ||
+               use_info.type_check() == TypeCheckKind::kArrayIndex) {
+      op = simplified()->CheckedFloat64ToInt32(
+          output_type.Maybe(Type::MinusZero())
+              ? use_info.minus_zero_check()
+              : CheckForMinusZeroMode::kDontCheckForMinusZero,
+          use_info.feedback());
+    } else if (output_type.Is(Type::Unsigned32())) {
+      op = machine()->ChangeFloat64ToUint32();
+    } else if (use_info.truncation().IsUsedAsWord32()) {
+      op = machine()->TruncateFloat64ToWord32();
+    } else {
+      return TypeError(node, output_rep, output_type,
+                       MachineRepresentation::kWord32);
+    }
+  } else if (output_rep == MachineRepresentation::kFloat32) {
+    node = InsertChangeFloat32ToFloat64(node);  // float32 -> float64 -> int32
+    if (output_type.Is(Type::Signed32())) {
+      op = machine()->ChangeFloat64ToInt32();
+    } else if (use_info.type_check() == TypeCheckKind::kSignedSmall ||
+               use_info.type_check() == TypeCheckKind::kSigned32 ||
+               use_info.type_check() == TypeCheckKind::kArrayIndex) {
+      op = simplified()->CheckedFloat64ToInt32(
+          output_type.Maybe(Type::MinusZero())
+              ? use_info.minus_zero_check()
+              : CheckForMinusZeroMode::kDontCheckForMinusZero,
+          use_info.feedback());
+    } else if (output_type.Is(Type::Unsigned32())) {
+      op = machine()->ChangeFloat64ToUint32();
+    } else if (use_info.truncation().IsUsedAsWord32()) {
+      op = machine()->TruncateFloat64ToWord32();
+    } else {
+      return TypeError(node, output_rep, output_type,
+                       MachineRepresentation::kWord32);
+    }
+  } else if (IsAnyTagged(output_rep)) {
+    if (output_rep == MachineRepresentation::kTaggedSigned &&
+        output_type.Is(Type::SignedSmall())) {
+      op = simplified()->ChangeTaggedSignedToInt32();
+    } else if (output_type.Is(Type::Signed32())) {
+      op = simplified()->ChangeTaggedToInt32();
+    } else if (use_info.type_check() == TypeCheckKind::kSignedSmall) {
+      op = simplified()->CheckedTaggedSignedToInt32(use_info.feedback());
+    } else if (use_info.type_check() == TypeCheckKind::kSigned32) {
+      op = simplified()->CheckedTaggedToInt32(
+          output_type.Maybe(Type::MinusZero())
+              ? use_info.minus_zero_check()
+              : CheckForMinusZeroMode::kDontCheckForMinusZero,
+          use_info.feedback());
+    } else if (use_info.type_check() == TypeCheckKind::kArrayIndex) {
+      op = simplified()->CheckedTaggedToArrayIndex(use_info.feedback());
+    } else if (output_type.Is(Type::Unsigned32())) {
+      op = simplified()->ChangeTaggedToUint32();
+    } else if (use_info.truncation().IsUsedAsWord32()) {
+      if (output_type.Is(Type::NumberOrOddball())) {
+        op = simplified()->TruncateTaggedToWord32();
+      } else if (use_info.type_check() == TypeCheckKind::kNumber) {
+        op = simplified()->CheckedTruncateTaggedToWord32(
+            CheckTaggedInputMode::kNumber, use_info.feedback());
+      } else if (use_info.type_check() == TypeCheckKind::kNumberOrOddball) {
+        op = simplified()->CheckedTruncateTaggedToWord32(
+            CheckTaggedInputMode::kNumberOrOddball, use_info.feedback());
+      } else {
+        return TypeError(node, output_rep, output_type,
+                         MachineRepresentation::kWord32);
+      }
+    } else {
+      return TypeError(node, output_rep, output_type,
+                       MachineRepresentation::kWord32);
+    }
+  } else if (output_rep == MachineRepresentation::kWord32) {
+    // Only the checked case should get here, the non-checked case is
+    // handled in GetRepresentationFor.
+    if (use_info.type_check() == TypeCheckKind::kSignedSmall ||
+        use_info.type_check() == TypeCheckKind::kSigned32 ||
+        use_info.type_check() == TypeCheckKind::kArrayIndex) {
+      bool identify_zeros = use_info.truncation().IdentifiesZeroAndMinusZero();
+      if (output_type.Is(Type::Signed32()) ||
+          (identify_zeros && output_type.Is(Type::Signed32OrMinusZero()))) {
+        return node;
+      } else if (output_type.Is(Type::Unsigned32()) ||
+                 (identify_zeros &&
+                  output_type.Is(Type::Unsigned32OrMinusZero()))) {
+        op = simplified()->CheckedUint32ToInt32(use_info.feedback());
+      } else {
+        return TypeError(node, output_rep, output_type,
+                         MachineRepresentation::kWord32);
+      }
+    } else if (use_info.type_check() == TypeCheckKind::kNumber ||
+               use_info.type_check() == TypeCheckKind::kNumberOrOddball) {
+      return node;
+    }
+  } else if (output_rep == MachineRepresentation::kWord8 ||
+             output_rep == MachineRepresentation::kWord16) {
+    DCHECK_EQ(MachineRepresentation::kWord32, use_info.representation());
+    DCHECK(use_info.type_check() == TypeCheckKind::kSignedSmall ||
+           use_info.type_check() == TypeCheckKind::kSigned32);
+    return node;
+  } else if (output_rep == MachineRepresentation::kWord64) {
+    if (output_type.Is(Type::Signed32()) ||
+        (output_type.Is(Type::Unsigned32()) &&
+         use_info.type_check() == TypeCheckKind::kNone) ||
+        (output_type.Is(cache_->kSafeInteger) &&
+         use_info.truncation().IsUsedAsWord32())) {
+      op = machine()->TruncateInt64ToInt32();
+    } else if (use_info.type_check() == TypeCheckKind::kSignedSmall ||
+               use_info.type_check() == TypeCheckKind::kSigned32 ||
+               use_info.type_check() == TypeCheckKind::kArrayIndex) {
+      if (output_type.Is(cache_->kPositiveSafeInteger)) {
+        op = simplified()->CheckedUint64ToInt32(use_info.feedback());
+      } else if (output_type.Is(cache_->kSafeInteger)) {
+        op = simplified()->CheckedInt64ToInt32(use_info.feedback());
+      } else {
+        return TypeError(node, output_rep, output_type,
+                         MachineRepresentation::kWord32);
+      }
+    } else {
+      return TypeError(node, output_rep, output_type,
+                       MachineRepresentation::kWord32);
+    }
+  }
+
+  if (op == nullptr) {
+    return TypeError(node, output_rep, output_type,
+                     MachineRepresentation::kWord32);
+  }
+  return InsertConversion(node, op, use_node);
+}","Node* RepresentationChanger::GetWord32RepresentationFor(
+    Node* node, MachineRepresentation output_rep, Type output_type,
+    Node* use_node, UseInfo use_info) {
+  // Eagerly fold representation changes for constants.
+  switch (node->opcode()) {
+    case IrOpcode::kInt32Constant:
+    case IrOpcode::kInt64Constant:
+    case IrOpcode::kFloat32Constant:
+    case IrOpcode::kFloat64Constant:
+      UNREACHABLE();
+    case IrOpcode::kNumberConstant: {
+      double const fv = OpParameter<double>(node->op());
+      if (use_info.type_check() == TypeCheckKind::kNone ||
+          ((use_info.type_check() == TypeCheckKind::kSignedSmall ||
+            use_info.type_check() == TypeCheckKind::kSigned32 ||
+            use_info.type_check() == TypeCheckKind::kNumber ||
+            use_info.type_check() == TypeCheckKind::kNumberOrOddball ||
+            use_info.type_check() == TypeCheckKind::kArrayIndex) &&
+           IsInt32Double(fv))) {
+        return MakeTruncatedInt32Constant(fv);
+      }
+      break;
+    }
+    default:
+      break;
+  }
+
+  // Select the correct X -> Word32 operator.
+  const Operator* op = nullptr;
+  if (output_type.Is(Type::None())) {
+    // This is an impossible value; it should not be used at runtime.
+    return jsgraph()->graph()->NewNode(
+        jsgraph()->common()->DeadValue(MachineRepresentation::kWord32), node);
+  } else if (output_rep == MachineRepresentation::kBit) {
+    CHECK(output_type.Is(Type::Boolean()));
+    if (use_info.truncation().IsUsedAsWord32()) {
+      return node;
+    } else {
+      CHECK(Truncation::Any(kIdentifyZeros)
+                .IsLessGeneralThan(use_info.truncation()));
+      CHECK_NE(use_info.type_check(), TypeCheckKind::kNone);
+      CHECK_NE(use_info.type_check(), TypeCheckKind::kNumberOrOddball);
+      Node* unreachable =
+          InsertUnconditionalDeopt(use_node, DeoptimizeReason::kNotASmi);
+      return jsgraph()->graph()->NewNode(
+          jsgraph()->common()->DeadValue(MachineRepresentation::kWord32),
+          unreachable);
+    }
+  } else if (output_rep == MachineRepresentation::kFloat64) {
+    if (output_type.Is(Type::Signed32())) {
+      op = machine()->ChangeFloat64ToInt32();
+    } else if (use_info.type_check() == TypeCheckKind::kSignedSmall ||
+               use_info.type_check() == TypeCheckKind::kSigned32 ||
+               use_info.type_check() == TypeCheckKind::kArrayIndex) {
+      op = simplified()->CheckedFloat64ToInt32(
+          output_type.Maybe(Type::MinusZero())
+              ? use_info.minus_zero_check()
+              : CheckForMinusZeroMode::kDontCheckForMinusZero,
+          use_info.feedback());
+    } else if (output_type.Is(Type::Unsigned32())) {
+      op = machine()->ChangeFloat64ToUint32();
+    } else if (use_info.truncation().IsUsedAsWord32()) {
+      op = machine()->TruncateFloat64ToWord32();
+    } else {
+      return TypeError(node, output_rep, output_type,
+                       MachineRepresentation::kWord32);
+    }
+  } else if (output_rep == MachineRepresentation::kFloat32) {
+    node = InsertChangeFloat32ToFloat64(node);  // float32 -> float64 -> int32
+    if (output_type.Is(Type::Signed32())) {
+      op = machine()->ChangeFloat64ToInt32();
+    } else if (use_info.type_check() == TypeCheckKind::kSignedSmall ||
+               use_info.type_check() == TypeCheckKind::kSigned32 ||
+               use_info.type_check() == TypeCheckKind::kArrayIndex) {
+      op = simplified()->CheckedFloat64ToInt32(
+          output_type.Maybe(Type::MinusZero())
+              ? use_info.minus_zero_check()
+              : CheckForMinusZeroMode::kDontCheckForMinusZero,
+          use_info.feedback());
+    } else if (output_type.Is(Type::Unsigned32())) {
+      op = machine()->ChangeFloat64ToUint32();
+    } else if (use_info.truncation().IsUsedAsWord32()) {
+      op = machine()->TruncateFloat64ToWord32();
+    } else {
+      return TypeError(node, output_rep, output_type,
+                       MachineRepresentation::kWord32);
+    }
+  } else if (IsAnyTagged(output_rep)) {
+    if (output_rep == MachineRepresentation::kTaggedSigned &&
+        output_type.Is(Type::SignedSmall())) {
+      op = simplified()->ChangeTaggedSignedToInt32();
+    } else if (output_type.Is(Type::Signed32())) {
+      op = simplified()->ChangeTaggedToInt32();
+    } else if (use_info.type_check() == TypeCheckKind::kSignedSmall) {
+      op = simplified()->CheckedTaggedSignedToInt32(use_info.feedback());
+    } else if (use_info.type_check() == TypeCheckKind::kSigned32) {
+      op = simplified()->CheckedTaggedToInt32(
+          output_type.Maybe(Type::MinusZero())
+              ? use_info.minus_zero_check()
+              : CheckForMinusZeroMode::kDontCheckForMinusZero,
+          use_info.feedback());
+    } else if (use_info.type_check() == TypeCheckKind::kArrayIndex) {
+      op = simplified()->CheckedTaggedToArrayIndex(use_info.feedback());
+    } else if (output_type.Is(Type::Unsigned32())) {
+      op = simplified()->ChangeTaggedToUint32();
+    } else if (use_info.truncation().IsUsedAsWord32()) {
+      if (output_type.Is(Type::NumberOrOddball())) {
+        op = simplified()->TruncateTaggedToWord32();
+      } else if (use_info.type_check() == TypeCheckKind::kNumber) {
+        op = simplified()->CheckedTruncateTaggedToWord32(
+            CheckTaggedInputMode::kNumber, use_info.feedback());
+      } else if (use_info.type_check() == TypeCheckKind::kNumberOrOddball) {
+        op = simplified()->CheckedTruncateTaggedToWord32(
+            CheckTaggedInputMode::kNumberOrOddball, use_info.feedback());
+      } else {
+        return TypeError(node, output_rep, output_type,
+                         MachineRepresentation::kWord32);
+      }
+    } else {
+      return TypeError(node, output_rep, output_type,
+                       MachineRepresentation::kWord32);
+    }
+  } else if (output_rep == MachineRepresentation::kWord32) {
+    // Only the checked case should get here, the non-checked case is
+    // handled in GetRepresentationFor.
+    if (use_info.type_check() == TypeCheckKind::kSignedSmall ||
+        use_info.type_check() == TypeCheckKind::kSigned32 ||
+        use_info.type_check() == TypeCheckKind::kArrayIndex) {
+      bool identify_zeros = use_info.truncation().IdentifiesZeroAndMinusZero();
+      if (output_type.Is(Type::Signed32()) ||
+          (identify_zeros && output_type.Is(Type::Signed32OrMinusZero()))) {
+        return node;
+      } else if (output_type.Is(Type::Unsigned32()) ||
+                 (identify_zeros &&
+                  output_type.Is(Type::Unsigned32OrMinusZero()))) {
+        op = simplified()->CheckedUint32ToInt32(use_info.feedback());
+      } else {
+        return TypeError(node, output_rep, output_type,
+                         MachineRepresentation::kWord32);
+      }
+    } else if (use_info.type_check() == TypeCheckKind::kNumber ||
+               use_info.type_check() == TypeCheckKind::kNumberOrOddball) {
+      return node;
+    }
+  } else if (output_rep == MachineRepresentation::kWord8 ||
+             output_rep == MachineRepresentation::kWord16) {
+    DCHECK_EQ(MachineRepresentation::kWord32, use_info.representation());
+    DCHECK(use_info.type_check() == TypeCheckKind::kSignedSmall ||
+           use_info.type_check() == TypeCheckKind::kSigned32);
+    return node;
+  } else if (output_rep == MachineRepresentation::kWord64) {
+    if (output_type.Is(Type::Signed32()) ||
+        output_type.Is(Type::Unsigned32())) {
+      op = machine()->TruncateInt64ToInt32();
+    } else if (output_type.Is(cache_->kSafeInteger) &&
+               use_info.truncation().IsUsedAsWord32()) {
+      op = machine()->TruncateInt64ToInt32();
+    } else if (use_info.type_check() == TypeCheckKind::kSignedSmall ||
+               use_info.type_check() == TypeCheckKind::kSigned32 ||
+               use_info.type_check() == TypeCheckKind::kArrayIndex) {
+      if (output_type.Is(cache_->kPositiveSafeInteger)) {
+        op = simplified()->CheckedUint64ToInt32(use_info.feedback());
+      } else if (output_type.Is(cache_->kSafeInteger)) {
+        op = simplified()->CheckedInt64ToInt32(use_info.feedback());
+      } else {
+        return TypeError(node, output_rep, output_type,
+                         MachineRepresentation::kWord32);
+      }
+    } else {
+      return TypeError(node, output_rep, output_type,
+                       MachineRepresentation::kWord32);
+    }
+  }
+
+  if (op == nullptr) {
+    return TypeError(node, output_rep, output_type,
+                     MachineRepresentation::kWord32);
+  }
+  return InsertConversion(node, op, use_node);
+}","if (output_type.Is(Type::Signed32()) ||
+        output_type.Is(Type::Unsigned32())) {
+      op = machine()->TruncateInt64ToInt32();
+    }",,,,,,
+1,2,2,None,Remote,Not required,Partial,CVE-2021-21224,https://www.cvedetails.com/cve-details.php?t=1&cve_id=CVE-2021-21224,CWE-843,Medium,Partial,Partial,,2021-04-26,6.8,Type confusion in V8 in Google Chrome prior to 90.0.4430.85 allowed a remote attacker to execute arbitrary code inside a sandbox via a crafted HTML page.,2021-06-01,,,,,,,,,,,,,,,,,,,1,"Node* RepresentationChanger::GetWord32RepresentationFor(
+    Node* node, MachineRepresentation output_rep, Type output_type,
+    Node* use_node, UseInfo use_info) {
+  // Eagerly fold representation changes for constants.
+  switch (node->opcode()) {
+    case IrOpcode::kInt32Constant:
+    case IrOpcode::kInt64Constant:
+    case IrOpcode::kFloat32Constant:
+    case IrOpcode::kFloat64Constant:
+      UNREACHABLE();
+    case IrOpcode::kNumberConstant: {
+      double const fv = OpParameter<double>(node->op());
+      if (use_info.type_check() == TypeCheckKind::kNone ||
+          ((use_info.type_check() == TypeCheckKind::kSignedSmall ||
+            use_info.type_check() == TypeCheckKind::kSigned32 ||
+            use_info.type_check() == TypeCheckKind::kNumber ||
+            use_info.type_check() == TypeCheckKind::kNumberOrOddball ||
+            use_info.type_check() == TypeCheckKind::kArrayIndex) &&
+           IsInt32Double(fv))) {
+        return MakeTruncatedInt32Constant(fv);
+      }
+      break;
+    }
+    default:
+      break;
+  }
+
+  // Select the correct X -> Word32 operator.
+  const Operator* op = nullptr;
+  if (output_type.Is(Type::None())) {
+    // This is an impossible value; it should not be used at runtime.
+    return jsgraph()->graph()->NewNode(
+        jsgraph()->common()->DeadValue(MachineRepresentation::kWord32), node);
+  } else if (output_rep == MachineRepresentation::kBit) {
+    CHECK(output_type.Is(Type::Boolean()));
+    if (use_info.truncation().IsUsedAsWord32()) {
+      return node;
+    } else {
+      CHECK(Truncation::Any(kIdentifyZeros)
+                .IsLessGeneralThan(use_info.truncation()));
+      CHECK_NE(use_info.type_check(), TypeCheckKind::kNone);
+      CHECK_NE(use_info.type_check(), TypeCheckKind::kNumberOrOddball);
+      Node* unreachable =
+          InsertUnconditionalDeopt(use_node, DeoptimizeReason::kNotASmi);
+      return jsgraph()->graph()->NewNode(
+          jsgraph()->common()->DeadValue(MachineRepresentation::kWord32),
+          unreachable);
+    }
+  } else if (output_rep == MachineRepresentation::kFloat64) {
+    if (output_type.Is(Type::Signed32())) {
+      op = machine()->ChangeFloat64ToInt32();
+    } else if (use_info.type_check() == TypeCheckKind::kSignedSmall ||
+               use_info.type_check() == TypeCheckKind::kSigned32 ||
+               use_info.type_check() == TypeCheckKind::kArrayIndex) {
+      op = simplified()->CheckedFloat64ToInt32(
+          output_type.Maybe(Type::MinusZero())
+              ? use_info.minus_zero_check()
+              : CheckForMinusZeroMode::kDontCheckForMinusZero,
+          use_info.feedback());
+    } else if (output_type.Is(Type::Unsigned32())) {
+      op = machine()->ChangeFloat64ToUint32();
+    } else if (use_info.truncation().IsUsedAsWord32()) {
+      op = machine()->TruncateFloat64ToWord32();
+    } else {
+      return TypeError(node, output_rep, output_type,
+                       MachineRepresentation::kWord32);
+    }
+  } else if (output_rep == MachineRepresentation::kFloat32) {
+    node = InsertChangeFloat32ToFloat64(node);  // float32 -> float64 -> int32
+    if (output_type.Is(Type::Signed32())) {
+      op = machine()->ChangeFloat64ToInt32();
+    } else if (use_info.type_check() == TypeCheckKind::kSignedSmall ||
+               use_info.type_check() == TypeCheckKind::kSigned32 ||
+               use_info.type_check() == TypeCheckKind::kArrayIndex) {
+      op = simplified()->CheckedFloat64ToInt32(
+          output_type.Maybe(Type::MinusZero())
+              ? use_info.minus_zero_check()
+              : CheckForMinusZeroMode::kDontCheckForMinusZero,
+          use_info.feedback());
+    } else if (output_type.Is(Type::Unsigned32())) {
+      op = machine()->ChangeFloat64ToUint32();
+    } else if (use_info.truncation().IsUsedAsWord32()) {
+      op = machine()->TruncateFloat64ToWord32();
+    } else {
+      return TypeError(node, output_rep, output_type,
+                       MachineRepresentation::kWord32);
+    }
+  } else if (IsAnyTagged(output_rep)) {
+    if (output_rep == MachineRepresentation::kTaggedSigned &&
+        output_type.Is(Type::SignedSmall())) {
+      op = simplified()->ChangeTaggedSignedToInt32();
+    } else if (output_type.Is(Type::Signed32())) {
+      op = simplified()->ChangeTaggedToInt32();
+    } else if (use_info.type_check() == TypeCheckKind::kSignedSmall) {
+      op = simplified()->CheckedTaggedSignedToInt32(use_info.feedback());
+    } else if (use_info.type_check() == TypeCheckKind::kSigned32) {
+      op = simplified()->CheckedTaggedToInt32(
+          output_type.Maybe(Type::MinusZero())
+              ? use_info.minus_zero_check()
+              : CheckForMinusZeroMode::kDontCheckForMinusZero,
+          use_info.feedback());
+    } else if (use_info.type_check() == TypeCheckKind::kArrayIndex) {
+      op = simplified()->CheckedTaggedToArrayIndex(use_info.feedback());
+    } else if (output_type.Is(Type::Unsigned32())) {
+      op = simplified()->ChangeTaggedToUint32();
+    } else if (use_info.truncation().IsUsedAsWord32()) {
+      if (output_type.Is(Type::NumberOrOddball())) {
+        op = simplified()->TruncateTaggedToWord32();
+      } else if (use_info.type_check() == TypeCheckKind::kNumber) {
+        op = simplified()->CheckedTruncateTaggedToWord32(
+            CheckTaggedInputMode::kNumber, use_info.feedback());
+      } else if (use_info.type_check() == TypeCheckKind::kNumberOrOddball) {
+        op = simplified()->CheckedTruncateTaggedToWord32(
+            CheckTaggedInputMode::kNumberOrOddball, use_info.feedback());
+      } else {
+        return TypeError(node, output_rep, output_type,
+                         MachineRepresentation::kWord32);
+      }
+    } else {
+      return TypeError(node, output_rep, output_type,
+                       MachineRepresentation::kWord32);
+    }
+  } else if (output_rep == MachineRepresentation::kWord32) {
+    // Only the checked case should get here, the non-checked case is
+    // handled in GetRepresentationFor.
+    if (use_info.type_check() == TypeCheckKind::kSignedSmall ||
+        use_info.type_check() == TypeCheckKind::kSigned32 ||
+        use_info.type_check() == TypeCheckKind::kArrayIndex) {
+      bool identify_zeros = use_info.truncation().IdentifiesZeroAndMinusZero();
+      if (output_type.Is(Type::Signed32()) ||
+          (identify_zeros && output_type.Is(Type::Signed32OrMinusZero()))) {
+        return node;
+      } else if (output_type.Is(Type::Unsigned32()) ||
+                 (identify_zeros &&
+                  output_type.Is(Type::Unsigned32OrMinusZero()))) {
+        op = simplified()->CheckedUint32ToInt32(use_info.feedback());
+      } else {
+        return TypeError(node, output_rep, output_type,
+                         MachineRepresentation::kWord32);
+      }
+    } else if (use_info.type_check() == TypeCheckKind::kNumber ||
+               use_info.type_check() == TypeCheckKind::kNumberOrOddball) {
+      return node;
+    }
+  } else if (output_rep == MachineRepresentation::kWord8 ||
+             output_rep == MachineRepresentation::kWord16) {
+    DCHECK_EQ(MachineRepresentation::kWord32, use_info.representation());
+    DCHECK(use_info.type_check() == TypeCheckKind::kSignedSmall ||
+           use_info.type_check() == TypeCheckKind::kSigned32);
+    return node;
+  } else if (output_rep == MachineRepresentation::kWord64) {
+    if (output_type.Is(Type::Signed32()) ||
+        (output_type.Is(Type::Unsigned32()) &&
+         use_info.type_check() == TypeCheckKind::kNone) ||
+        (output_type.Is(cache_->kSafeInteger) &&
+         use_info.truncation().IsUsedAsWord32())) {
+      op = machine()->TruncateInt64ToInt32();
+    } else if (use_info.type_check() == TypeCheckKind::kSignedSmall ||
+               use_info.type_check() == TypeCheckKind::kSigned32 ||
+               use_info.type_check() == TypeCheckKind::kArrayIndex) {
+      if (output_type.Is(cache_->kPositiveSafeInteger)) {
+        op = simplified()->CheckedUint64ToInt32(use_info.feedback());
+      } else if (output_type.Is(cache_->kSafeInteger)) {
+        op = simplified()->CheckedInt64ToInt32(use_info.feedback());
+      } else {
+        return TypeError(node, output_rep, output_type,
+                         MachineRepresentation::kWord32);
+      }
+    } else {
+      return TypeError(node, output_rep, output_type,
+                       MachineRepresentation::kWord32);
+    }
+  }
+
+  if (op == nullptr) {
+    return TypeError(node, output_rep, output_type,
+                     MachineRepresentation::kWord32);
+  }
+  return InsertConversion(node, op, use_node);
+}","Node* RepresentationChanger::GetWord32RepresentationFor(
+    Node* node, MachineRepresentation output_rep, Type output_type,
+    Node* use_node, UseInfo use_info) {
+  // Eagerly fold representation changes for constants.
+  switch (node->opcode()) {
+    case IrOpcode::kInt32Constant:
+    case IrOpcode::kInt64Constant:
+    case IrOpcode::kFloat32Constant:
+    case IrOpcode::kFloat64Constant:
+      UNREACHABLE();
+    case IrOpcode::kNumberConstant: {
+      double const fv = OpParameter<double>(node->op());
+      if (use_info.type_check() == TypeCheckKind::kNone ||
+          ((use_info.type_check() == TypeCheckKind::kSignedSmall ||
+            use_info.type_check() == TypeCheckKind::kSigned32 ||
+            use_info.type_check() == TypeCheckKind::kNumber ||
+            use_info.type_check() == TypeCheckKind::kNumberOrOddball ||
+            use_info.type_check() == TypeCheckKind::kArrayIndex) &&
+           IsInt32Double(fv))) {
+        return MakeTruncatedInt32Constant(fv);
+      }
+      break;
+    }
+    default:
+      break;
+  }
+
+  // Select the correct X -> Word32 operator.
+  const Operator* op = nullptr;
+  if (output_type.Is(Type::None())) {
+    // This is an impossible value; it should not be used at runtime.
+    return jsgraph()->graph()->NewNode(
+        jsgraph()->common()->DeadValue(MachineRepresentation::kWord32), node);
+  } else if (output_rep == MachineRepresentation::kBit) {
+    CHECK(output_type.Is(Type::Boolean()));
+    if (use_info.truncation().IsUsedAsWord32()) {
+      return node;
+    } else {
+      CHECK(Truncation::Any(kIdentifyZeros)
+                .IsLessGeneralThan(use_info.truncation()));
+      CHECK_NE(use_info.type_check(), TypeCheckKind::kNone);
+      CHECK_NE(use_info.type_check(), TypeCheckKind::kNumberOrOddball);
+      Node* unreachable =
+          InsertUnconditionalDeopt(use_node, DeoptimizeReason::kNotASmi);
+      return jsgraph()->graph()->NewNode(
+          jsgraph()->common()->DeadValue(MachineRepresentation::kWord32),
+          unreachable);
+    }
+  } else if (output_rep == MachineRepresentation::kFloat64) {
+    if (output_type.Is(Type::Signed32())) {
+      op = machine()->ChangeFloat64ToInt32();
+    } else if (use_info.type_check() == TypeCheckKind::kSignedSmall ||
+               use_info.type_check() == TypeCheckKind::kSigned32 ||
+               use_info.type_check() == TypeCheckKind::kArrayIndex) {
+      op = simplified()->CheckedFloat64ToInt32(
+          output_type.Maybe(Type::MinusZero())
+              ? use_info.minus_zero_check()
+              : CheckForMinusZeroMode::kDontCheckForMinusZero,
+          use_info.feedback());
+    } else if (output_type.Is(Type::Unsigned32())) {
+      op = machine()->ChangeFloat64ToUint32();
+    } else if (use_info.truncation().IsUsedAsWord32()) {
+      op = machine()->TruncateFloat64ToWord32();
+    } else {
+      return TypeError(node, output_rep, output_type,
+                       MachineRepresentation::kWord32);
+    }
+  } else if (output_rep == MachineRepresentation::kFloat32) {
+    node = InsertChangeFloat32ToFloat64(node);  // float32 -> float64 -> int32
+    if (output_type.Is(Type::Signed32())) {
+      op = machine()->ChangeFloat64ToInt32();
+    } else if (use_info.type_check() == TypeCheckKind::kSignedSmall ||
+               use_info.type_check() == TypeCheckKind::kSigned32 ||
+               use_info.type_check() == TypeCheckKind::kArrayIndex) {
+      op = simplified()->CheckedFloat64ToInt32(
+          output_type.Maybe(Type::MinusZero())
+              ? use_info.minus_zero_check()
+              : CheckForMinusZeroMode::kDontCheckForMinusZero,
+          use_info.feedback());
+    } else if (output_type.Is(Type::Unsigned32())) {
+      op = machine()->ChangeFloat64ToUint32();
+    } else if (use_info.truncation().IsUsedAsWord32()) {
+      op = machine()->TruncateFloat64ToWord32();
+    } else {
+      return TypeError(node, output_rep, output_type,
+                       MachineRepresentation::kWord32);
+    }
+  } else if (IsAnyTagged(output_rep)) {
+    if (output_rep == MachineRepresentation::kTaggedSigned &&
+        output_type.Is(Type::SignedSmall())) {
+      op = simplified()->ChangeTaggedSignedToInt32();
+    } else if (output_type.Is(Type::Signed32())) {
+      op = simplified()->ChangeTaggedToInt32();
+    } else if (use_info.type_check() == TypeCheckKind::kSignedSmall) {
+      op = simplified()->CheckedTaggedSignedToInt32(use_info.feedback());
+    } else if (use_info.type_check() == TypeCheckKind::kSigned32) {
+      op = simplified()->CheckedTaggedToInt32(
+          output_type.Maybe(Type::MinusZero())
+              ? use_info.minus_zero_check()
+              : CheckForMinusZeroMode::kDontCheckForMinusZero,
+          use_info.feedback());
+    } else if (use_info.type_check() == TypeCheckKind::kArrayIndex) {
+      op = simplified()->CheckedTaggedToArrayIndex(use_info.feedback());
+    } else if (output_type.Is(Type::Unsigned32())) {
+      op = simplified()->ChangeTaggedToUint32();
+    } else if (use_info.truncation().IsUsedAsWord32()) {
+      if (output_type.Is(Type::NumberOrOddball())) {
+        op = simplified()->TruncateTaggedToWord32();
+      } else if (use_info.type_check() == TypeCheckKind::kNumber) {
+        op = simplified()->CheckedTruncateTaggedToWord32(
+            CheckTaggedInputMode::kNumber, use_info.feedback());
+      } else if (use_info.type_check() == TypeCheckKind::kNumberOrOddball) {
+        op = simplified()->CheckedTruncateTaggedToWord32(
+            CheckTaggedInputMode::kNumberOrOddball, use_info.feedback());
+      } else {
+        return TypeError(node, output_rep, output_type,
+                         MachineRepresentation::kWord32);
+      }
+    } else {
+      return TypeError(node, output_rep, output_type,
+                       MachineRepresentation::kWord32);
+    }
+  } else if (output_rep == MachineRepresentation::kWord32) {
+    // Only the checked case should get here, the non-checked case is
+    // handled in GetRepresentationFor.
+    if (use_info.type_check() == TypeCheckKind::kSignedSmall ||
+        use_info.type_check() == TypeCheckKind::kSigned32 ||
+        use_info.type_check() == TypeCheckKind::kArrayIndex) {
+      bool identify_zeros = use_info.truncation().IdentifiesZeroAndMinusZero();
+      if (output_type.Is(Type::Signed32()) ||
+          (identify_zeros && output_type.Is(Type::Signed32OrMinusZero()))) {
+        return node;
+      } else if (output_type.Is(Type::Unsigned32()) ||
+                 (identify_zeros &&
+                  output_type.Is(Type::Unsigned32OrMinusZero()))) {
+        op = simplified()->CheckedUint32ToInt32(use_info.feedback());
+      } else {
+        return TypeError(node, output_rep, output_type,
+                         MachineRepresentation::kWord32);
+      }
+    } else if (use_info.type_check() == TypeCheckKind::kNumber ||
+               use_info.type_check() == TypeCheckKind::kNumberOrOddball) {
+      return node;
+    }
+  } else if (output_rep == MachineRepresentation::kWord8 ||
+             output_rep == MachineRepresentation::kWord16) {
+    DCHECK_EQ(MachineRepresentation::kWord32, use_info.representation());
+    DCHECK(use_info.type_check() == TypeCheckKind::kSignedSmall ||
+           use_info.type_check() == TypeCheckKind::kSigned32);
+    return node;
+  } else if (output_rep == MachineRepresentation::kWord64) {
+    if (output_type.Is(Type::Signed32()) ||
+        output_type.Is(Type::Unsigned32())) {
+      op = machine()->TruncateInt64ToInt32();
+    } else if (output_type.Is(cache_->kSafeInteger) &&
+               use_info.truncation().IsUsedAsWord32()) {
+      op = machine()->TruncateInt64ToInt32();
+    } else if (use_info.type_check() == TypeCheckKind::kSignedSmall ||
+               use_info.type_check() == TypeCheckKind::kSigned32 ||
+               use_info.type_check() == TypeCheckKind::kArrayIndex) {
+      if (output_type.Is(cache_->kPositiveSafeInteger)) {
+        op = simplified()->CheckedUint64ToInt32(use_info.feedback());
+      } else if (output_type.Is(cache_->kSafeInteger)) {
+        op = simplified()->CheckedInt64ToInt32(use_info.feedback());
+      } else {
+        return TypeError(node, output_rep, output_type,
+                         MachineRepresentation::kWord32);
+      }
+    } else {
+      return TypeError(node, output_rep, output_type,
+                       MachineRepresentation::kWord32);
+    }
+  }
+
+  if (op == nullptr) {
+    return TypeError(node, output_rep, output_type,
+                     MachineRepresentation::kWord32);
+  }
+  return InsertConversion(node, op, use_node);
+}","if (output_type.Is(Type::Signed32()) ||
+        output_type.Is(Type::Unsigned32())) {
+      op = machine()->TruncateInt64ToInt32();
+    }",,,,,,
+2,3,3,None,Remote,Not required,Partial,CVE-2021-21220,https://www.cvedetails.com/cve-details.php?t=1&cve_id=CVE-2021-21220,CWE-119,Medium,Partial,Partial,,2021-04-26,6.8,Insufficient validation of untrusted input in V8 in Google Chrome prior to 89.0.4389.128 allowed a remote attacker to potentially exploit heap corruption via a crafted HTML page.,2021-06-01,Overflow,,,,,,,,,,,,,,,,,,1,"void InstructionSelector::VisitChangeInt32ToInt64(Node* node) {
+  DCHECK_EQ(node->InputCount(), 1);
+  Node* input = node->InputAt(0);
+  if (input->opcode() == IrOpcode::kTruncateInt64ToInt32) {
+    node->ReplaceInput(0, input->InputAt(0));
+  }
+
+  X64OperandGenerator g(this);
+  Node* const value = node->InputAt(0);
+  if (value->opcode() == IrOpcode::kLoad && CanCover(node, value)) {
+    LoadRepresentation load_rep = LoadRepresentationOf(value->op());
+    MachineRepresentation rep = load_rep.representation();
+    InstructionCode opcode;
+    switch (rep) {
+      case MachineRepresentation::kBit:  // Fall through.
+      case MachineRepresentation::kWord8:
+        opcode = load_rep.IsSigned() ? kX64Movsxbq : kX64Movzxbq;
+        break;
+      case MachineRepresentation::kWord16:
+        opcode = load_rep.IsSigned() ? kX64Movsxwq : kX64Movzxwq;
+        break;
+      case MachineRepresentation::kWord32:
+        // ChangeInt32ToInt64 must interpret its input as a _signed_ 32-bit
+        // integer, so here we must sign-extend the loaded value in any case.
+        opcode = kX64Movsxlq;
+        break;
+      default:
+        UNREACHABLE();
+    }
+    InstructionOperand outputs[] = {g.DefineAsRegister(node)};
+    size_t input_count = 0;
+    InstructionOperand inputs[3];
+    AddressingMode mode = g.GetEffectiveAddressMemoryOperand(
+        node->InputAt(0), inputs, &input_count);
+    opcode |= AddressingModeField::encode(mode);
+    Emit(opcode, 1, outputs, input_count, inputs);
+  } else {
+    Emit(kX64Movsxlq, g.DefineAsRegister(node), g.Use(node->InputAt(0)));
+  }
+}","void InstructionSelector::VisitChangeInt32ToInt64(Node* node) {
+  DCHECK_EQ(node->InputCount(), 1);
+  Node* input = node->InputAt(0);
+  if (input->opcode() == IrOpcode::kTruncateInt64ToInt32) {
+    node->ReplaceInput(0, input->InputAt(0));
+  }
+
+  X64OperandGenerator g(this);
+  Node* const value = node->InputAt(0);
+  if (value->opcode() == IrOpcode::kLoad && CanCover(node, value)) {
+    LoadRepresentation load_rep = LoadRepresentationOf(value->op());
+    MachineRepresentation rep = load_rep.representation();
+    InstructionCode opcode;
+    switch (rep) {
+      case MachineRepresentation::kBit:  // Fall through.
+      case MachineRepresentation::kWord8:
+        opcode = load_rep.IsSigned() ? kX64Movsxbq : kX64Movzxbq;
+        break;
+      case MachineRepresentation::kWord16:
+        opcode = load_rep.IsSigned() ? kX64Movsxwq : kX64Movzxwq;
+        break;
+      case MachineRepresentation::kWord32:
+        opcode = load_rep.IsSigned() ? kX64Movsxlq : kX64Movl;
+        break;
+      default:
+        UNREACHABLE();
+    }
+    InstructionOperand outputs[] = {g.DefineAsRegister(node)};
+    size_t input_count = 0;
+    InstructionOperand inputs[3];
+    AddressingMode mode = g.GetEffectiveAddressMemoryOperand(
+        node->InputAt(0), inputs, &input_count);
+    opcode |= AddressingModeField::encode(mode);
+    Emit(opcode, 1, outputs, input_count, inputs);
+  } else {
+    Emit(kX64Movsxlq, g.DefineAsRegister(node), g.Use(node->InputAt(0)));
+  }
+}","case MachineRepresentation::kWord32:
+        opcode = load_rep.IsSigned() ? kX64Movsxlq : kX64Movl;",,,,,,
+3,4,4,None,Remote,Not required,Partial,CVE-2021-21148,https://www.cvedetails.com/cve-details.php?t=1&cve_id=CVE-2021-21148,CWE-787,Medium,Partial,Partial,,2021-02-09,6.8,Heap buffer overflow in V8 in Google Chrome prior to 88.0.4324.150 allowed a remote attacker to potentially exploit heap corruption via a crafted HTML page.,2021-05-17,Overflow,,,,,,,,,,,,,,,,,,1,"bool DOMArrayBuffer::Transfer(v8::Isolate* isolate,
+                              ArrayBufferContents& result) {
+  DOMArrayBuffer* to_transfer = this;
+  if (!IsDetachable(isolate)) {
+    to_transfer = DOMArrayBuffer::Create(Content()->Data(), ByteLength());
+  }
+
+  return to_transfer->TransferDetachable(isolate, result);
+}","bool DOMArrayBuffer::Transfer(v8::Isolate* isolate,
+                              ArrayBufferContents& result) {
+  DOMArrayBuffer* to_transfer = this;
+  if (!IsDetachable(isolate)) {
+    to_transfer = DOMArrayBuffer::Create(Content()->Data(), ByteLength());
+  }
+
+  if (IsDetached()) {
+    result.Detach();
+    return false;
+  }
+
+  if (!Content()->Data()) {
+    // We transfer an empty ArrayBuffer, we can just allocate an empty content.
+    result = ArrayBufferContents(Content()->BackingStore());
+  } else {
+    Content()->Transfer(result);
+    Detach();
+  }
+
+  Vector<v8::Local<v8::ArrayBuffer>, 4> buffer_handles;
+  v8::HandleScope handle_scope(isolate);
+  AccumulateArrayBuffersForAllWorlds(isolate, to_transfer, buffer_handles);
+
+  for (const auto& buffer_handle : buffer_handles)
+    buffer_handle->Detach();
+
+  return true;
+}","if (IsDetached()) {
+    result.Detach();
+    return false;
+  }
+
+  if (!Content()->Data()) {
+    // We transfer an empty ArrayBuffer, we can just allocate an empty content.
+    result = ArrayBufferContents(Content()->BackingStore());
+  } else {
+    Content()->Transfer(result);
+    Detach();
+  }
+
+  Vector<v8::Local<v8::ArrayBuffer>, 4> buffer_handles;
+  v8::HandleScope handle_scope(isolate);
+  AccumulateArrayBuffersForAllWorlds(isolate, to_transfer, buffer_handles);
+
+  for (const auto& buffer_handle : buffer_handles)
+    buffer_handle->Detach();
+
+  return true;",,,,,,
+4,5,5,None,Remote,Not required,None,CVE-2014-0160,https://www.cvedetails.com/cve-details.php?t=1&cve_id=CVE-2014-0160,CWE-119,Low,Partial,None,,2014-04-07,5,"The (1) TLS and (2) DTLS implementations in OpenSSL 1.0.1 before 1.0.1g do not properly handle Heartbeat Extension packets, which allows remote attackers to obtain sensitive information from process memory via crafted packets that trigger a buffer over-read, as demonstrated by reading private keys, related to d1_both.c and t1_lib.c, aka the Heartbleed bug.",2020-07-28,"Overflow, Obtain Information",,,,,,,,,,,,,,,,,,1,"int
+dtls1_process_heartbeat(SSL *s)
+	{
+	unsigned char *p = &s->s3->rrec.data[0], *pl;
+	unsigned short hbtype;
+	unsigned int payload;
+	unsigned int padding = 16; /* Use minimum padding */
+
+	if (s->msg_callback)
+		s->msg_callback(0, s->version, TLS1_RT_HEARTBEAT,
+			&s->s3->rrec.data[0], s->s3->rrec.length,
+			s, s->msg_callback_arg);
+
+	/* Read type and payload length first */
+	if (1 + 2 + 16 > s->s3->rrec.length)
+		return 0; /* silently discard */
+	hbtype = *p++;
+	n2s(p, payload);
+	if (1 + 2 + payload + 16 > s->s3->rrec.length)
+		return 0; /* silently discard per RFC 6520 sec. 4 */
+	pl = p;
+
+	if (hbtype == TLS1_HB_REQUEST)
+		{
+		unsigned char *buffer, *bp;
+		unsigned int write_length = 1 /* heartbeat type */ +
+					    2 /* heartbeat length */ +
+					    payload + padding;
+		int r;
+
+		if (write_length > SSL3_RT_MAX_PLAIN_LENGTH)
+			return 0;
+
+		/* Allocate memory for the response, size is 1 byte
+		 * message type, plus 2 bytes payload length, plus
+		 * payload, plus padding
+		 */
+		buffer = OPENSSL_malloc(write_length);
+		bp = buffer;
+
+		/* Enter response type, length and copy payload */
+		*bp++ = TLS1_HB_RESPONSE;
+		s2n(payload, bp);
+		memcpy(bp, pl, payload);
+		bp += payload;
+		/* Random padding */
+		RAND_pseudo_bytes(bp, padding);
+
+		r = dtls1_write_bytes(s, TLS1_RT_HEARTBEAT, buffer, write_length);
+
+		if (r >= 0 && s->msg_callback)
+			s->msg_callback(1, s->version, TLS1_RT_HEARTBEAT,
+				buffer, write_length,
+				s, s->msg_callback_arg);
+
+		OPENSSL_free(buffer);
+
+		if (r < 0)
+			return r;
+		}
+	else if (hbtype == TLS1_HB_RESPONSE)
+		{
+		unsigned int seq;
+
+		/* We only send sequence numbers (2 bytes unsigned int),
+		 * and 16 random bytes, so we just try to read the
+		 * sequence number */
+		n2s(pl, seq);
+
+		if (payload == 18 && seq == s->tlsext_hb_seq)
+			{
+			dtls1_stop_timer(s);
+			s->tlsext_hb_seq++;
+			s->tlsext_hb_pending = 0;
+			}
+		}
+
+	return 0;
+	}","int
+dtls1_process_heartbeat(SSL *s)
+	{
+	unsigned char *p = &s->s3->rrec.data[0], *pl;
+	unsigned short hbtype;
+	unsigned int payload;
+	unsigned int padding = 16; /* Use minimum padding */
+
+	/* Read type and payload length first */
+	hbtype = *p++;
+	n2s(p, payload);
+	pl = p;
+
+	if (s->msg_callback)
+		s->msg_callback(0, s->version, TLS1_RT_HEARTBEAT,
+			&s->s3->rrec.data[0], s->s3->rrec.length,
+			s, s->msg_callback_arg);
+
+	if (hbtype == TLS1_HB_REQUEST)
+		{
+		unsigned char *buffer, *bp;
+		int r;
+
+		/* Allocate memory for the response, size is 1 byte
+		 * message type, plus 2 bytes payload length, plus
+		 * payload, plus padding
+		 */
+		buffer = OPENSSL_malloc(1 + 2 + payload + padding);
+		bp = buffer;
+
+		/* Enter response type, length and copy payload */
+		*bp++ = TLS1_HB_RESPONSE;
+		s2n(payload, bp);
+		memcpy(bp, pl, payload);
+		bp += payload;
+		/* Random padding */
+		RAND_pseudo_bytes(bp, padding);
+
+		r = dtls1_write_bytes(s, TLS1_RT_HEARTBEAT, buffer, 3 + payload + padding);
+
+		if (r >= 0 && s->msg_callback)
+			s->msg_callback(1, s->version, TLS1_RT_HEARTBEAT,
+				buffer, 3 + payload + padding,
+				s, s->msg_callback_arg);
+
+		OPENSSL_free(buffer);
+
+		if (r < 0)
+			return r;
+		}
+	else if (hbtype == TLS1_HB_RESPONSE)
+		{
+		unsigned int seq;
+
+		/* We only send sequence numbers (2 bytes unsigned int),
+		 * and 16 random bytes, so we just try to read the
+		 * sequence number */
+		n2s(pl, seq);
+
+		if (payload == 18 && seq == s->tlsext_hb_seq)
+			{
+			dtls1_stop_timer(s);
+			s->tlsext_hb_seq++;
+			s->tlsext_hb_pending = 0;
+			}
+		}
+
+	return 0;
+	}",buffer = OPENSSL_malloc(1 + 2 + payload + padding),,"s->msg_callback(1, s->version, TLS1_RT_HEARTBEAT,
+				buffer, 3 + payload + padding,
+				s, s→msg_callback_arg);",,,,
+5,6,6,None,Remote,Not required,Partial,CVE-2013–1892,https://www.cvedetails.com/cve/CVE-2013-1892/,CWE-20,Medium,Partial,Partial,,2013-10-01,6,"MongoDB before 2.0.9 and 2.2.x before 2.2.4 does not properly validate requests to the nativeHelper function in SpiderMonkey, which allows remote authenticated users to cause a denial of service (invalid memory access and server crash) or execute arbitrary code via a crafted memory address in the first argument.",2013-12-01,"Denial Of Service, Execute Code",0,,,,,,,,,,,,,,,,,1,"JSBool native_helper( JSContext *cx , JSObject *obj , uintN argc, jsval *argv , jsval *rval ) {
+        try {
+            Convertor c(cx);
+
+            // get function pointer from JS caller's argument property 'x'
+            massert(16735, ""nativeHelper argument requires object with 'x' property"",
+                    c.hasProperty(obj, ""x""));
+            double functionAddress = c.getNumber(obj, ""x"");
+            FunctionMap::iterator funcIter = currentScope->_functionMap.find(functionAddress);
+            massert(16734, ""JavaScript function not in map"",
+                    funcIter != currentScope->_functionMap.end());
+            NativeFunction func = funcIter->second;
+            verify(func);
+
+            // get data pointer from JS caller's argument property 'y'
+            void* data = NULL;
+            if (c.hasProperty(obj, ""y"")) {
+                double argumentAddress = c.getNumber(obj, ""y"");
+                ArgumentMap::iterator argIter = currentScope->_argumentMap.find(argumentAddress);
+                massert(16736, ""nativeHelper 'y' parameter must be in the argumentMap"",
+                        argIter != currentScope->_argumentMap.end());
+                data = argIter->second;
+            }
+
+            BSONObj a;
+            if ( argc > 0 ) {
+                BSONObjBuilder args;
+                for ( uintN i = 0; i < argc; ++i ) {
+                    c.append( args , args.numStr( i ) , argv[i] );
+                }
+                a = args.obj();
+            }
+
+            BSONObj out;
+            try {
+                out = func( a, data );
+            }
+            catch ( std::exception& e ) {
+                if ( ! JS_IsExceptionPending( cx ) ) {
+                    JS_ReportError( cx, e.what() );
+                }
+                return JS_FALSE;
+            }
+
+            if ( out.isEmpty() ) {
+                *rval = JSVAL_VOID;
+            }
+            else {
+                *rval = c.toval( out.firstElement() );
+            }
+        }
+        catch ( const AssertionException& e ) {
+            if ( ! JS_IsExceptionPending( cx ) ) {
+                JS_ReportError( cx, e.what() );
+            }
+            return JS_FALSE;
+        }
+        catch ( const std::exception& e ) {
+            log() << ""unhandled exception: "" << e.what() << "", throwing Fatal Assertion"" << endl;
+            fassertFailed( 16281 );
+        }
+        return JS_TRUE;
+    }","JSBool native_helper( JSContext *cx , JSObject *obj , uintN argc, jsval *argv , jsval *rval ) {
+        try {
+            Convertor c(cx);
+            NativeFunction func = reinterpret_cast<NativeFunction>(
+                    static_cast<long long>( c.getNumber( obj , ""x"" ) ) );
+            void* data = reinterpret_cast<void*>(
+                    static_cast<long long>( c.getNumber( obj , ""y"" ) ) );
+            verify( func );
+
+            BSONObj a;
+            if ( argc > 0 ) {
+                BSONObjBuilder args;
+                for ( uintN i = 0; i < argc; ++i ) {
+                    c.append( args , args.numStr( i ) , argv[i] );
+                }
+                a = args.obj();
+            }
+
+            BSONObj out;
+            try {
+                out = func( a, data );
+            }
+            catch ( std::exception& e ) {
+                if ( ! JS_IsExceptionPending( cx ) ) {
+                    JS_ReportError( cx, e.what() );
+                }
+                return JS_FALSE;
+            }
+
+            if ( out.isEmpty() ) {
+                *rval = JSVAL_VOID;
+            }
+            else {
+                *rval = c.toval( out.firstElement() );
+            }
+        }
+        catch ( const AssertionException& e ) {
+            if ( ! JS_IsExceptionPending( cx ) ) {
+                JS_ReportError( cx, e.what() );
+            }
+            return JS_FALSE;
+        }
+        catch ( const std::exception& e ) {
+            log() << ""unhandled exception: "" << e.what() << "", throwing Fatal Assertion"" << endl;
+            fassertFailed( 16281 );
+        }
+        return JS_TRUE;
+    }","NativeFunction func = reinterpret_cast<NativeFunction>(
+                    static_cast<long long>( c.getNumber( obj , ""x"" ) ) );","                out = func( a, data );",,,,,
+25,26,26,None,Remote,Not required,Partial,CVE-2019-5786,https://www.cvedetails.com/cve/CVE-2019-5786/,CWE-416,Medium,None,None,,2019-06-27,4.3,Object lifetime issue in Blink in Google Chrome prior to 72.0.3626.121 allowed a remote attacker to potentially perform out of bounds memory access via a crafted HTML page.,2019-07-01,,9,https://github.com/chromium/chromium/commit/ba9748e78ec7e9c0d594e7edf7b2c07ea2a90449,ba9748e78ec7e9c0d594e7edf7b2c07ea2a90449,"FileReader: Make a copy of the ArrayBuffer when returning partial results.
+
+This is to avoid accidentally ending up with multiple references to the
+same underlying ArrayBuffer. The extra performance overhead of this is
+minimal as usage of partial results is very rare anyway (as can be seen
+on https://www.chromestatus.com/metrics/feature/timeline/popularity/2158).
+
+Bug: 936448
+Change-Id: Icd1081adc1c889829fe7fa4af9cf4440097e8854
+Reviewed-on: https://chromium-review.googlesource.com/c/1492873
+Commit-Queue: Marijn Kruisselbrink <mek@chromium.org>
+Reviewed-by: Adam Klein <adamk@chromium.org>
+Cr-Commit-Position: refs/heads/master@{#636251}",7,third_party/blink/renderer/core/fileapi/file_reader_loader.cc,"{""sha"": ""f79e842dd02f8bfce1bb9f7fe0995e0cda2ae3ae"", ""filename"": ""third_party/blink/renderer/core/fileapi/file_reader_loader.cc"", ""status"": ""modified"", ""additions"": 9, ""deletions"": 7, ""changes"": 16, ""blob_url"": ""https://github.com/chromium/chromium/blob/ba9748e78ec7e9c0d594e7edf7b2c07ea2a90449/third_party/blink/renderer/core/fileapi/file_reader_loader.cc"", ""raw_url"": ""https://github.com/chromium/chromium/raw/ba9748e78ec7e9c0d594e7edf7b2c07ea2a90449/third_party/blink/renderer/core/fileapi/file_reader_loader.cc"", ""contents_url"": ""https://api.github.com/repos/chromium/chromium/contents/third_party/blink/renderer/core/fileapi/file_reader_loader.cc?ref=ba9748e78ec7e9c0d594e7edf7b2c07ea2a90449"", ""patch"": ""@@ -139,14 +139,16 @@ DOMArrayBuffer* FileReaderLoader::ArrayBufferResult() {\n   if (!raw_data_ || error_code_ != FileErrorCode::kOK)\n     return nullptr;\n \n-  DOMArrayBuffer* result = DOMArrayBuffer::Create(raw_data_->ToArrayBuffer());\n-  if (finished_loading_) {\n-    array_buffer_result_ = result;\n-    AdjustReportedMemoryUsageToV8(\n-        -1 * static_cast<int64_t>(raw_data_->ByteLength()));\n-    raw_data_.reset();\n+  if (!finished_loading_) {\n+    return DOMArrayBuffer::Create(\n+        ArrayBuffer::Create(raw_data_->Data(), raw_data_->ByteLength()));\n   }\n-  return result;\n+\n+  array_buffer_result_ = DOMArrayBuffer::Create(raw_data_->ToArrayBuffer());\n+  AdjustReportedMemoryUsageToV8(-1 *\n+                                static_cast<int64_t>(raw_data_->ByteLength()));\n+  raw_data_.reset();\n+  return array_buffer_result_;\n }\n \n String FileReaderLoader::StringResult() {""}","DOMArrayBuffer* FileReaderLoader::ArrayBufferResult() {
+  DCHECK_EQ(read_type_, kReadAsArrayBuffer);
+  if (array_buffer_result_)
+    return array_buffer_result_;
+
+   if (!raw_data_ || error_code_ != FileErrorCode::kOK)
+     return nullptr;
+ 
+  if (!finished_loading_) {
+    return DOMArrayBuffer::Create(
+        ArrayBuffer::Create(raw_data_->Data(), raw_data_->ByteLength()));
+   }
+
+  array_buffer_result_ = DOMArrayBuffer::Create(raw_data_->ToArrayBuffer());
+  AdjustReportedMemoryUsageToV8(-1 *
+                                static_cast<int64_t>(raw_data_->ByteLength()));
+  raw_data_.reset();
+  return array_buffer_result_;
+ }
+","DOMArrayBuffer* FileReaderLoader::ArrayBufferResult() {
+  DCHECK_EQ(read_type_, kReadAsArrayBuffer);
+  if (array_buffer_result_)
+    return array_buffer_result_;
+
+   if (!raw_data_ || error_code_ != FileErrorCode::kOK)
+     return nullptr;
+ 
+  DOMArrayBuffer* result = DOMArrayBuffer::Create(raw_data_->ToArrayBuffer());
+  if (finished_loading_) {
+    array_buffer_result_ = result;
+    AdjustReportedMemoryUsageToV8(
+        -1 * static_cast<int64_t>(raw_data_->ByteLength()));
+    raw_data_.reset();
+   }
+  return result;
+ }
+",C,"  if (!finished_loading_) {
+    return DOMArrayBuffer::Create(
+        ArrayBuffer::Create(raw_data_->Data(), raw_data_->ByteLength()));
+
+  array_buffer_result_ = DOMArrayBuffer::Create(raw_data_->ToArrayBuffer());
+  AdjustReportedMemoryUsageToV8(-1 *
+                                static_cast<int64_t>(raw_data_->ByteLength()));
+  raw_data_.reset();
+  return array_buffer_result_;
+","  DOMArrayBuffer* result = DOMArrayBuffer::Create(raw_data_->ToArrayBuffer());
+  if (finished_loading_) {
+    array_buffer_result_ = result;
+    AdjustReportedMemoryUsageToV8(
+        -1 * static_cast<int64_t>(raw_data_->ByteLength()));
+    raw_data_.reset();
+  return result;
+",,"@@ -139,14 +139,16 @@ DOMArrayBuffer* FileReaderLoader::ArrayBufferResult() {
+   if (!raw_data_ || error_code_ != FileErrorCode::kOK)
+     return nullptr;
+ 
+-  DOMArrayBuffer* result = DOMArrayBuffer::Create(raw_data_->ToArrayBuffer());
+-  if (finished_loading_) {
+-    array_buffer_result_ = result;
+-    AdjustReportedMemoryUsageToV8(
+-        -1 * static_cast<int64_t>(raw_data_->ByteLength()));
+-    raw_data_.reset();
++  if (!finished_loading_) {
++    return DOMArrayBuffer::Create(
++        ArrayBuffer::Create(raw_data_->Data(), raw_data_->ByteLength()));
+   }
+-  return result;
++
++  array_buffer_result_ = DOMArrayBuffer::Create(raw_data_->ToArrayBuffer());
++  AdjustReportedMemoryUsageToV8(-1 *
++                                static_cast<int64_t>(raw_data_->ByteLength()));
++  raw_data_.reset();
++  return array_buffer_result_;
+ }
+ 
+ String FileReaderLoader::StringResult() {",Chrome,ba9748e78ec7e9c0d594e7edf7b2c07ea2a90449,9f3fccdba567f30ea39b08f57d8d5b49cd832b4a,1,"DOMArrayBuffer* FileReaderLoader::ArrayBufferResult() {
+  DCHECK_EQ(read_type_, kReadAsArrayBuffer);
+  if (array_buffer_result_)
+    return array_buffer_result_;
+
+  // If the loading is not started or an error occurs, return an empty result.
+   if (!raw_data_ || error_code_ != FileErrorCode::kOK)
+     return nullptr;
+ 
+//flaw_line_below:
+  DOMArrayBuffer* result = DOMArrayBuffer::Create(raw_data_->ToArrayBuffer());
+//flaw_line_below:
+  if (finished_loading_) {
+//flaw_line_below:
+    array_buffer_result_ = result;
+//flaw_line_below:
+    AdjustReportedMemoryUsageToV8(
+//flaw_line_below:
+        -1 * static_cast<int64_t>(raw_data_->ByteLength()));
+//flaw_line_below:
+    raw_data_.reset();
+//fix_flaw_line_below:
+//  if (!finished_loading_) {
+//fix_flaw_line_below:
+//    return DOMArrayBuffer::Create(
+//fix_flaw_line_below:
+//        ArrayBuffer::Create(raw_data_->Data(), raw_data_->ByteLength()));
+   }
+//flaw_line_below:
+  return result;
+//fix_flaw_line_below:
+//
+//fix_flaw_line_below:
+//  array_buffer_result_ = DOMArrayBuffer::Create(raw_data_->ToArrayBuffer());
+//fix_flaw_line_below:
+//  AdjustReportedMemoryUsageToV8(-1 *
+//fix_flaw_line_below:
+//                                static_cast<int64_t>(raw_data_->ByteLength()));
+//fix_flaw_line_below:
+//  raw_data_.reset();
+//fix_flaw_line_below:
+//  return array_buffer_result_;
+ }
+","DOMArrayBuffer* FileReaderLoader::ArrayBufferResult() {
+DCHECK_EQ(read_type_, kReadAsArrayBuffer);
+if (array_buffer_result_)
+return array_buffer_result_;
+
+// If the loading is not started or an error occurs, return an empty result.
+if (!raw_data_ || error_code_ != FileErrorCode::kOK)
+return nullptr;
+
+  DOMArrayBuffer* result = DOMArrayBuffer::Create(raw_data_->ToArrayBuffer());
+  if (finished_loading_) {
+    array_buffer_result_ = result;
+    AdjustReportedMemoryUsageToV8(
+        -1 * static_cast<int64_t>(raw_data_->ByteLength()));
+    raw_data_.reset();
+}
+  return result;
+}
+",  DOMArrayBuffer* result = DOMArrayBuffer::Create(raw_data_->ToArrayBuffer()),/~/  if (finished_loading_) {/~/    array_buffer_result_ = result,/~/    AdjustReportedMemoryUsageToV8(/~/        -1 * static_cast<int64_t>(raw_data_->ByteLength())),/~/    raw_data_.reset(),/~/  return result,,"9,10,11,12,13,14,16"

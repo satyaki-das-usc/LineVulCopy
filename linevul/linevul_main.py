@@ -258,7 +258,7 @@ def evaluate(args, model, tokenizer, eval_dataset, eval_when_training=False):
 def test(args, model, tokenizer, test_dataset, best_threshold=0.5):
     # build dataloader
     test_sampler = SequentialSampler(test_dataset)
-    test_dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=args.eval_batch_size, num_workers=0)
+    test_dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=args.eval_batch_size, num_workers=1)
 
     # multi-gpu evaluate
     if args.n_gpu > 1:
@@ -268,12 +268,13 @@ def test(args, model, tokenizer, test_dataset, best_threshold=0.5):
     logger.info("***** Running Test *****")
     logger.info("  Num examples = %d", len(test_dataset))
     logger.info("  Batch size = %d", args.eval_batch_size)
+    logger.info("  Write raw predictions = %d", args.write_raw_preds)
     eval_loss = 0.0
     nb_eval_steps = 0
     model.eval()
     logits=[]  
     y_trues=[]
-    for batch in test_dataloader:
+    for batch in tqdm(test_dataloader):
         (inputs_ids, labels) = [x.to(args.device) for x in batch]
         with torch.no_grad():
             lm_loss, logit = model(input_ids=inputs_ids, labels=labels)
@@ -319,7 +320,7 @@ def test(args, model, tokenizer, test_dataset, best_threshold=0.5):
         # (RQ2) Effort@TopK%Recall & Recall@TopK%LOC for the whole test set
         # flatten the logits
         for reasoning_method in all_reasoning_method:
-            dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=1, num_workers=0)
+            dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=1, num_workers=1)
             progress_bar = tqdm(dataloader, total=len(dataloader))
             all_pos_score_label = []
             all_neg_score_label = []
@@ -418,7 +419,7 @@ def test(args, model, tokenizer, test_dataset, best_threshold=0.5):
             tp_indices = list(tp_indices[0])
             print("correct vulnerable count: ", len(tp_indices))
             # localization part
-            dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=1, num_workers=0)
+            dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=1, num_workers=1)
             # prepare data for line-level reasoning
             df = pd.read_csv(args.test_data_file)
             # stats for line-level evaluation
@@ -854,7 +855,7 @@ def line_level_localization(flaw_lines: str, tokenizer, model, mini_batch, origi
         encoded_all = ''.join(all_tokens)
         if encoded_flaw in encoded_all:
             verified_flaw_lines.append(flaw_tokens_encoded[i])
-
+    
     if reasoning_method == "attention":
         # attentions: a tuple with of one Tensor with 4D shape (batch_size, num_heads, sequence_length, sequence_length)
         input_ids = input_ids.to(args.device)
@@ -1148,7 +1149,7 @@ def main():
                         help="Run evaluation during training at each logging step.")
     parser.add_argument("--do_local_explanation", default=False, action='store_true',
                         help="Whether to do local explanation. ") 
-    parser.add_argument("--reasoning_method", default=None, type=str,
+    parser.add_argument("--reasoning_method", default="all", type=str,
                         help="Should be one of 'attention', 'shap', 'lime', 'lig'")
 
     parser.add_argument("--train_batch_size", default=4, type=int,
