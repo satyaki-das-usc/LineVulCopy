@@ -20,4 +20,6 @@ PYTHONPATH="." python linevul_main.py \
     --block_size 512 \
     --eval_batch_size 256 \
     --write_raw_preds \
-    --do_sorting_by_line_scores
+    --do_sorting_by_line_scores \
+    --do_sorting_by_pred_prob \
+    --do_local_explanation

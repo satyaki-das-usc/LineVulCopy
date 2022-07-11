@@ -258,7 +258,7 @@ def evaluate(args, model, tokenizer, eval_dataset, eval_when_training=False):
 def test(args, model, tokenizer, test_dataset, best_threshold=0.5):
     # build dataloader
     test_sampler = SequentialSampler(test_dataset)
-    test_dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=args.eval_batch_size, num_workers=1)
+    test_dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=args.eval_batch_size, num_workers=0)
 
     # multi-gpu evaluate
     if args.n_gpu > 1:
@@ -320,7 +320,7 @@ def test(args, model, tokenizer, test_dataset, best_threshold=0.5):
         # (RQ2) Effort@TopK%Recall & Recall@TopK%LOC for the whole test set
         # flatten the logits
         for reasoning_method in all_reasoning_method:
-            dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=1, num_workers=1)
+            dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=1, num_workers=0)
             progress_bar = tqdm(dataloader, total=len(dataloader))
             all_pos_score_label = []
             all_neg_score_label = []
@@ -419,7 +419,7 @@ def test(args, model, tokenizer, test_dataset, best_threshold=0.5):
             tp_indices = list(tp_indices[0])
             print("correct vulnerable count: ", len(tp_indices))
             # localization part
-            dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=1, num_workers=1)
+            dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=1, num_workers=0)
             # prepare data for line-level reasoning
             df = pd.read_csv(args.test_data_file)
             # stats for line-level evaluation
