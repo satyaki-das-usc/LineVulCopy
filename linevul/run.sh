@@ -47,4 +47,5 @@ PYTHONPATH="." python linevul_main.py \
     --eval_batch_size 256 \
     --write_raw_preds \
     --do_train \
-    --train_data_file=../data/zero_day/chromium_free.csv
+    --train_data_file=../data/zero_day/chromium_free.csv \
+    --eval_data_file=../data/zero_day/chromium_free.csv
