@@ -24,6 +24,8 @@ import random
 import re
 import numpy as np
 import torch
+import gc
+
 from torch.utils.data import DataLoader, Dataset, SequentialSampler, RandomSampler,TensorDataset
 from torch.utils.data.distributed import DistributedSampler
 from transformers import (WEIGHTS_NAME, AdamW, get_linear_schedule_with_warmup,
@@ -319,6 +321,8 @@ def test(args, model, tokenizer, test_dataset, best_threshold=0.5):
     if args.do_sorting_by_line_scores:
         # (RQ2) Effort@TopK%Recall & Recall@TopK%LOC for the whole test set
         # flatten the logits
+        del variables
+        gc.collect()
         for reasoning_method in all_reasoning_method:
             dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=1, num_workers=0)
             progress_bar = tqdm(dataloader, total=len(dataloader))
@@ -892,7 +896,6 @@ def line_level_localization(flaw_lines: str, tokenizer, model, mini_batch, origi
 
         lig = LayerIntegratedGradients(lig_forward, model.encoder.roberta.embeddings)
 
-        torch.cuda.empty_cache()
         attributions, delta = lig.attribute(inputs=input_ids,
                                             baselines=ref_input_ids,
                                             internal_batch_size=32,
