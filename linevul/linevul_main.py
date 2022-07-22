@@ -306,6 +306,13 @@ def test(args, model, tokenizer, test_dataset, best_threshold=0.5):
     logits = [l[1] for l in logits]
     result_df = generate_result_df(logits, y_trues, y_preds, args)
     sum_lines, sum_flaw_lines = get_line_statistics(result_df)
+
+    RESULTS_FILEPATH = "./results/results.csv"
+            
+    if not os.path.isfile(RESULTS_FILEPATH):
+        os.system(f"touch {RESULTS_FILEPATH}")
+    
+    result_df.to_csv(RESULTS_FILEPATH)
     
     # write raw predictions if needed
     if args.write_raw_preds:
