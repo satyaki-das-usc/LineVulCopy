@@ -366,9 +366,8 @@ def test(args, model, tokenizer, test_dataset, best_threshold=0.5):
                     all_neg_score_label.append(all_lines_score_with_label)
                 index += 1
             is_attention = True if reasoning_method == "attention" else False            
-            total_pos_lines, pos_rank_df  = rank_lines(all_pos_score_label, is_attention, ascending_ranking=False)
-
             print(all_pos_score_label)
+            total_pos_lines, pos_rank_df  = rank_lines(all_pos_score_label, is_attention, ascending_ranking=False)
             
             POS_RANK_FILEPATH = "./results/pos_rank.csv"
             
