@@ -330,6 +330,7 @@ def test(args, model, tokenizer, test_dataset, best_threshold=0.5):
         for reasoning_method in all_reasoning_method:
             dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=1, num_workers=0)
             progress_bar = tqdm(dataloader, total=len(dataloader))
+            all_lines_score_with_label_list = []
             all_pos_score_label = []
             all_neg_score_label = []
             index = 0
@@ -365,10 +366,20 @@ def test(args, model, tokenizer, test_dataset, best_threshold=0.5):
                                             index=index)
                     all_neg_score_label.append(all_lines_score_with_label)
                 index += 1
-            is_attention = True if reasoning_method == "attention" else False            
-            print(all_pos_score_label)
+                all_lines_score_with_label_list.append(all_lines_score_with_label)
+            is_attention = True if reasoning_method == "attention" else False
             total_pos_lines, pos_rank_df  = rank_lines(all_pos_score_label, is_attention, ascending_ranking=False)
             
+            line_scores_df = pd.DataFrame({"scores": all_lines_score_with_label_list, "processed_func": result_df["processed_func"], "flaw_line": result_df["flaw_line"]})
+
+            LINE_SCORES_FILEPATH = "./results/line_scores.csv"
+            
+            if not os.path.isfile(LINE_SCORES_FILEPATH):
+                os.system(f"touch {LINE_SCORES_FILEPATH}")
+            
+            line_scores_df.to_csv(LINE_SCORES_FILEPATH)
+
+
             POS_RANK_FILEPATH = "./results/pos_rank.csv"
             
             if not os.path.isfile(POS_RANK_FILEPATH):
