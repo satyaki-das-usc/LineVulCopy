@@ -18,7 +18,7 @@ PYTHONPATH="." python linevul_main.py \
     --do_test \
     --test_data_file=../data/zero_day/zero_day_vul_only.csv \
     --block_size 512 \
-    --eval_batch_size 128 \
+    --eval_batch_size 256 \
     --write_raw_preds \
     --do_sorting_by_line_scores \
 

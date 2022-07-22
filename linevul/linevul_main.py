@@ -321,7 +321,7 @@ def test(args, model, tokenizer, test_dataset, best_threshold=0.5):
         # (RQ2) Effort@TopK%Recall & Recall@TopK%LOC for the whole test set
         # flatten the logits
         for reasoning_method in all_reasoning_method:
-            dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=1, num_workers=0)
+            dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=2, num_workers=0)
             progress_bar = tqdm(dataloader, total=len(dataloader))
             all_pos_score_label = []
             all_neg_score_label = []
