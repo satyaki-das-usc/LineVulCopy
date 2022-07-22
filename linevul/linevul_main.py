@@ -861,7 +861,7 @@ def line_level_localization(flaw_lines: str, tokenizer, model, mini_batch, origi
         pred_prob = logits[y_pred].unsqueeze(-1)
         return pred_prob
 
-    flaw_line_seperator = "\n"
+    flaw_line_seperator = "/~/"
     (input_ids, labels) = mini_batch
     ids = input_ids[0].detach().tolist()
     all_tokens = tokenizer.convert_ids_to_tokens(ids)
