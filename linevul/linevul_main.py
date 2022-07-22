@@ -368,6 +368,8 @@ def test(args, model, tokenizer, test_dataset, best_threshold=0.5):
             is_attention = True if reasoning_method == "attention" else False            
             total_pos_lines, pos_rank_df  = rank_lines(all_pos_score_label, is_attention, ascending_ranking=False)
 
+            print(all_pos_score_label)
+            
             POS_RANK_FILEPATH = "./results/pos_rank.csv"
             
             if not os.path.isfile(POS_RANK_FILEPATH):
