@@ -360,11 +360,25 @@ def test(args, model, tokenizer, test_dataset, best_threshold=0.5):
                 index += 1
             is_attention = True if reasoning_method == "attention" else False            
             total_pos_lines, pos_rank_df  = rank_lines(all_pos_score_label, is_attention, ascending_ranking=False)
+
+            POS_RANK_FILEPATH = "./results/pos_rank.csv"
+            
+            if not os.path.isfile(POS_RANK_FILEPATH):
+                os.system(f"touch {POS_RANK_FILEPATH}")
+            
+            pos_rank_df.to_csv(POS_RANK_FILEPATH)
             
             if is_attention:
                 total_neg_lines, neg_rank_df  = rank_lines(all_neg_score_label, is_attention, ascending_ranking=True)
             else:
                 total_neg_lines, neg_rank_df  = rank_lines(all_neg_score_label, is_attention, ascending_ranking=False)
+            
+            NEG_RANK_FILEPATH = "./results/neg_rank.csv"
+
+            if not os.path.isfile(NEG_RANK_FILEPATH):
+                os.system(f"touch {NEG_RANK_FILEPATH}")
+            
+            neg_rank_df.to_csv(NEG_RANK_FILEPATH)
             
             effort, inspected_line = top_k_effort(pos_rank_df, sum_lines, sum_flaw_lines, args.effort_at_top_k)
 
