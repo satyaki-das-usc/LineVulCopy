@@ -895,7 +895,7 @@ def line_level_localization(flaw_lines: str, tokenizer, model, mini_batch, origi
 
         attributions, delta = lig.attribute(inputs=input_ids,
                                             baselines=ref_input_ids,
-                                            internal_batch_size=8,
+                                            internal_batch_size=4,
                                             return_convergence_delta=True)
         score = predict(input_ids)
         pred_idx = torch.argmax(score).cpu().numpy()
