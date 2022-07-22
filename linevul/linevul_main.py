@@ -24,7 +24,6 @@ import random
 import re
 import numpy as np
 import torch
-import gc
 
 from torch.utils.data import DataLoader, Dataset, SequentialSampler, RandomSampler,TensorDataset
 from torch.utils.data.distributed import DistributedSampler
@@ -321,8 +320,6 @@ def test(args, model, tokenizer, test_dataset, best_threshold=0.5):
     if args.do_sorting_by_line_scores:
         # (RQ2) Effort@TopK%Recall & Recall@TopK%LOC for the whole test set
         # flatten the logits
-        del variables
-        gc.collect()
         for reasoning_method in all_reasoning_method:
             dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=1, num_workers=0)
             progress_bar = tqdm(dataloader, total=len(dataloader))
