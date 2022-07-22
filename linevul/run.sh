@@ -21,6 +21,7 @@ PYTHONPATH="." python linevul_main.py \
     --eval_batch_size 256 \
     --write_raw_preds \
     --do_sorting_by_line_scores \
+    --reasoning_method=attention
 
 # PYTHONPATH="." python linevul_main.py \
 #     --model_name=12heads_linevul_model.bin \
