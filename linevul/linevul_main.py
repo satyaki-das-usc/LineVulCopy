@@ -253,7 +253,7 @@ def evaluate(args, model, tokenizer, eval_dataset, curr_timestamp, eval_when_tra
         "eval_threshold":best_threshold,
     }
 
-    STATS_JSON_PATH = f"/results/eval_{curr_timestamp}.json"
+    STATS_JSON_PATH = f"./results/eval_{curr_timestamp}.json"
 
     if not os.path.isfile(STATS_JSON_PATH):
         os.system(f"touch {STATS_JSON_PATH}")
@@ -310,7 +310,7 @@ def test(args, model, tokenizer, test_dataset, curr_timestamp, best_threshold=0.
         "test_threshold":best_threshold,
     }
 
-    STATS_JSON_PATH = f"/results/test_{curr_timestamp}.json"
+    STATS_JSON_PATH = f"./results/test_{curr_timestamp}.json"
 
     if not os.path.isfile(STATS_JSON_PATH):
         os.system(f"touch {STATS_JSON_PATH}")
