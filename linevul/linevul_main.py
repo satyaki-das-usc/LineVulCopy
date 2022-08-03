@@ -19,6 +19,7 @@ import argparse
 import glob
 import logging
 import os
+import json
 import pickle
 import random
 import re
@@ -29,6 +30,8 @@ from torch.utils.data import DataLoader, Dataset, SequentialSampler, RandomSampl
 from torch.utils.data.distributed import DistributedSampler
 from transformers import (WEIGHTS_NAME, AdamW, get_linear_schedule_with_warmup,
                           RobertaConfig, RobertaForSequenceClassification, RobertaTokenizer)
+
+from datetime import datetime
 from tqdm import tqdm
 import multiprocessing
 from linevul_model import Model
@@ -112,7 +115,7 @@ def set_seed(args):
     if args.n_gpu > 0:
         torch.cuda.manual_seed_all(args.seed)
 
-def train(args, train_dataset, model, tokenizer, eval_dataset):
+def train(args, train_dataset, model, tokenizer, eval_dataset, curr_timestamp):
     """ Train the model """
     # build dataloader
     train_sampler = RandomSampler(train_dataset)
@@ -188,7 +191,7 @@ def train(args, train_dataset, model, tokenizer, eval_dataset):
                 avg_loss=round(np.exp((tr_loss - logging_loss) /(global_step- tr_nb)),4)
 
                 if global_step % args.save_steps == 0:
-                    results = evaluate(args, model, tokenizer, eval_dataset, eval_when_training=True)    
+                    results = evaluate(args, model, tokenizer, eval_dataset, curr_timestamp, eval_when_training=True)    
                     
                     # Save model checkpoint
                     if results['eval_f1']>best_f1:
@@ -206,7 +209,7 @@ def train(args, train_dataset, model, tokenizer, eval_dataset):
                         torch.save(model_to_save.state_dict(), output_dir)
                         logger.info("Saving model checkpoint to %s", output_dir)
                         
-def evaluate(args, model, tokenizer, eval_dataset, eval_when_training=False):
+def evaluate(args, model, tokenizer, eval_dataset, curr_timestamp, eval_when_training=False):
     #build dataloader
     eval_sampler = SequentialSampler(eval_dataset)
     eval_dataloader = DataLoader(eval_dataset, sampler=eval_sampler,batch_size=args.eval_batch_size,num_workers=0)
@@ -250,13 +253,21 @@ def evaluate(args, model, tokenizer, eval_dataset, eval_when_training=False):
         "eval_threshold":best_threshold,
     }
 
+    STATS_JSON_PATH = f"/results/eval_{curr_timestamp}.json"
+
+    if not os.path.isfile(STATS_JSON_PATH):
+        os.system(f"touch {STATS_JSON_PATH}")
+    
+    with open(STATS_JSON_PATH, "w") as f:
+        json.dump(result, f, indent=2)
+
     logger.info("***** Eval results *****")
     for key in sorted(result.keys()):
         logger.info("  %s = %s", key, str(round(result[key],4)))
 
     return result
 
-def test(args, model, tokenizer, test_dataset, best_threshold=0.5):
+def test(args, model, tokenizer, test_dataset, curr_timestamp, best_threshold=0.5):
     # build dataloader
     test_sampler = SequentialSampler(test_dataset)
     test_dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=args.eval_batch_size, num_workers=0)
@@ -298,6 +309,14 @@ def test(args, model, tokenizer, test_dataset, best_threshold=0.5):
         "test_f1": float(f1),
         "test_threshold":best_threshold,
     }
+
+    STATS_JSON_PATH = f"/results/test_{curr_timestamp}.json"
+
+    if not os.path.isfile(STATS_JSON_PATH):
+        os.system(f"touch {STATS_JSON_PATH}")
+    
+    with open(STATS_JSON_PATH, "w") as f:
+        json.dump(result, f, indent=2)
 
     logger.info("***** Test results *****")
     for key in sorted(result.keys()):
@@ -1143,6 +1162,8 @@ def encode_one_line(line, tokenizer):
     return [token.replace("Ġ", "") for token in code_tokens if token != "@"]
 
 def main():
+    now = datetime.now()
+    curr_timestamp = now.strftime("%m_%d_%Y_%H_%M_%S")
     parser = argparse.ArgumentParser()
     ## parameters
     parser.add_argument("--train_data_file", default=None, type=str, required=False,
@@ -1266,7 +1287,7 @@ def main():
     if args.do_train:
         train_dataset = TextDataset(tokenizer, args, file_type='train')
         eval_dataset = TextDataset(tokenizer, args, file_type='eval')
-        train(args, train_dataset, model, tokenizer, eval_dataset)
+        train(args, train_dataset, model, tokenizer, eval_dataset, curr_timestamp)
     # Evaluation
     results = {}
     if args.do_eval:
@@ -1274,14 +1295,14 @@ def main():
         output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
         model.load_state_dict(torch.load(output_dir))
         model.to(args.device)
-        result=evaluate(args, model, tokenizer)   
+        result=evaluate(args, model, tokenizer, curr_timestamp)
     if args.do_test:
         checkpoint_prefix = f'checkpoint-best-f1/{args.model_name}'
         output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
         model.load_state_dict(torch.load(output_dir, map_location=args.device))
         model.to(args.device)
         test_dataset = TextDataset(tokenizer, args, file_type='test')
-        test(args, model, tokenizer, test_dataset, best_threshold=0.5)
+        test(args, model, tokenizer, test_dataset, curr_timestamp, best_threshold=0.5)
     return results
 
 if __name__ == "__main__":
