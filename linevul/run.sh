@@ -48,4 +48,4 @@ PYTHONPATH="." python linevul_main.py \
     --write_raw_preds \
     --do_train \
     --train_data_file=../data/devign/devign.csv \
-    --eval_data_file=../data/zero_day/chromium.csv
+    --eval_data_file=../data/big-vul_dataset/val.csv
