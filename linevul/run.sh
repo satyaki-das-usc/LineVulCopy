@@ -48,4 +48,5 @@ PYTHONPATH="." python linevul_main.py \
     --write_raw_preds \
     --do_train \
     --train_data_file=../data/devign/devign_train.csv \
-    --eval_data_file=../data/devign/devign_val.csv
+    --eval_data_file=../data/devign/devign_val.csv \
+    --epochs 50
