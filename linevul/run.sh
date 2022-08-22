@@ -49,4 +49,5 @@ PYTHONPATH="." python linevul_main.py \
     --do_train \
     --train_data_file=../data/devign/devign_train.csv \
     --eval_data_file=../data/devign/devign_val.csv \
-    --epochs 50
+    --do_sorting_by_line_scores \
+    --reasoning_method=attention
