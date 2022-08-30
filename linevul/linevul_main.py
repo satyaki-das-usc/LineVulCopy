@@ -1073,7 +1073,7 @@ def line_level_evaluation(all_lines_score: list, flaw_line_indices: list, top_k_
         # all_lines_score_with_label: [[line score, line level label], [line score, line level label], ...]
         all_lines_score_with_label = []
         for i in range(len(all_lines_score)):
-            if i in flaw_line_indices:
+            if all_lines_score[i] in flaw_line_indices:
                 all_lines_score_with_label.append([all_lines_score[i], 1])
             else:
                 all_lines_score_with_label.append([all_lines_score[i], 0])
