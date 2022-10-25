@@ -42,13 +42,13 @@ PYTHONPATH="." python linevul_main.py \
     --tokenizer_name=microsoft/codebert-base \
     --model_name_or_path=microsoft/codebert-base \
     --do_test \
-    --test_data_file=../data/devign/devign_test.csv \
+    --test_data_file=../data/cat/cat_test.csv \
     --block_size 512 \
     --eval_batch_size 256 \
     --write_raw_preds \
     --do_train \
-    --train_data_file=../data/devign/devign_train.csv \
-    --eval_data_file=../data/devign/devign_val.csv \
+    --train_data_file=../data/cat/cat_train.csv \
+    --eval_data_file=../data/cat/cat_val.csv \
     --do_sorting_by_line_scores \
     --reasoning_method=attention
 
