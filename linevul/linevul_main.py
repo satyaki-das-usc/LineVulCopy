@@ -1267,7 +1267,7 @@ def main():
     # Set seed
     set_seed(args)
     config = RobertaConfig.from_pretrained(args.config_name if args.config_name else args.model_name_or_path)
-    config.num_labels = 91
+    config.num_labels = 92
     config.num_attention_heads = args.num_attention_heads
     if args.use_word_level_tokenizer:
         print('using wordlevel tokenizer!')
