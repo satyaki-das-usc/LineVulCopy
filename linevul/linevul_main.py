@@ -1267,8 +1267,9 @@ def main():
     # Set seed
     set_seed(args)
     config = RobertaConfig.from_pretrained(args.config_name if args.config_name else args.model_name_or_path)
-    config.num_labels = 92
+    config.num_labels = 87
     config.num_attention_heads = args.num_attention_heads
+
     if args.use_word_level_tokenizer:
         print('using wordlevel tokenizer!')
         tokenizer = Tokenizer.from_file('./word_level_tokenizer/wordlevel.json')
@@ -1280,8 +1281,10 @@ def main():
     if args.use_non_pretrained_model:
         model = RobertaForSequenceClassification(config=config)        
     else:
-        model = RobertaForSequenceClassification.from_pretrained(args.model_name_or_path, config=config, ignore_mismatched_sizes=True)    
+        model = RobertaForSequenceClassification.from_pretrained(args.model_name_or_path, config=config, ignore_mismatched_sizes=True)
+    
     model = Model(model, config, tokenizer, args)
+    
     logger.info("Training/evaluation parameters %s", args)
     # Training
     if args.do_train:
