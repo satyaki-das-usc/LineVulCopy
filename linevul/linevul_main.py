@@ -243,9 +243,9 @@ def evaluate(args, model, tokenizer, eval_dataset, curr_timestamp, eval_when_tra
     best_threshold = 0.5
     best_f1 = 0
     y_preds = logits[:,1]>best_threshold
-    recall = recall_score(y_trues, y_preds)
-    precision = precision_score(y_trues, y_preds)   
-    f1 = f1_score(y_trues, y_preds)             
+    recall = recall_score(y_trues, y_preds, average="micro")
+    precision = precision_score(y_trues, y_preds, average="micro")
+    f1 = f1_score(y_trues, y_preds, average="micro")
     result = {
         "eval_recall": float(recall),
         "eval_precision": float(precision),
@@ -299,9 +299,9 @@ def test(args, model, tokenizer, test_dataset, curr_timestamp, best_threshold=0.
     y_trues = np.concatenate(y_trues, 0)
     y_preds = logits[:, 1] > best_threshold
     acc = accuracy_score(y_trues, y_preds)
-    recall = recall_score(y_trues, y_preds)
-    precision = precision_score(y_trues, y_preds)   
-    f1 = f1_score(y_trues, y_preds)             
+    recall = recall_score(y_trues, y_preds, average="micro")
+    precision = precision_score(y_trues, y_preds, average="micro")
+    f1 = f1_score(y_trues, y_preds, average="micro")
     result = {
         "test_accuracy": float(acc),
         "test_recall": float(recall),
