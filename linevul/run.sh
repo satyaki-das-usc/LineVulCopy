@@ -80,6 +80,6 @@ PYTHONPATH="." python linevul_main.py \
     --write_raw_preds \
     --do_train \
     --do_eval \
-    --epochs 3 \
+    --epochs 1 \
     --train_data_file=../data/cat/cat_train.csv \
     --eval_data_file=../data/cat/cat_val.csv
