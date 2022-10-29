@@ -1298,7 +1298,7 @@ def main():
         output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
         model.load_state_dict(torch.load(output_dir))
         model.to(args.device)
-        result=evaluate(args, model, tokenizer, curr_timestamp)
+        result=evaluate(args, model, tokenizer, eval_dataset, curr_timestamp)
     if args.do_test:
         checkpoint_prefix = f'checkpoint-best-f1/{args.model_name}'
         output_dir = os.path.join(args.output_dir, '{}'.format(checkpoint_prefix))  
