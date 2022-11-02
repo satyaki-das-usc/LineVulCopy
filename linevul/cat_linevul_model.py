@@ -11,7 +11,7 @@ class RobertaClassificationHead(nn.Module):
         super().__init__()
         self.dense = nn.Linear(config.hidden_size, config.hidden_size)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
-        self.out_proj = nn.Linear(config.hidden_size, 87)
+        self.out_proj = nn.Linear(config.hidden_size, 89)
 
     def forward(self, features, **kwargs):
         x = features[:, 0, :]  # take <s> token (equiv. to [CLS])
@@ -64,7 +64,7 @@ class Model(RobertaForSequenceClassification):
                 outputs = self.encoder.roberta(inputs_embeds=input_embed, output_attentions=output_attentions)[0]
             
             with open(log_filename, "a") as f:
-                content = f"Outputs: {outputs}\n"
+                content = f"Outputs: {len(outputs)}\n"
                 f.write(content)
             logits = self.classifier(outputs)
             prob = torch.softmax(logits, dim=-1)
