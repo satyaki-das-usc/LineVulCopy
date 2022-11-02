@@ -32,16 +32,6 @@ class Model(RobertaForSequenceClassification):
     
         
     def forward(self, input_embed=None, labels=None, output_attentions=False, input_ids=None):
-        log_filename = "model.log"
-
-        if not isfile(log_filename):
-            with open(log_filename, "w"):
-                pass
-        
-        with open(log_filename, "a") as f:
-            content = f"Model::forward(input_ids={type(input_ids)}, labels={type(labels)}, output_attentions={output_attentions})\n"
-            f.write(content)
-
         if output_attentions:
             if input_ids is not None:
                 outputs = self.encoder.roberta(input_ids, attention_mask=input_ids.ne(1), output_attentions=output_attentions)
@@ -63,9 +53,6 @@ class Model(RobertaForSequenceClassification):
             else:
                 outputs = self.encoder.roberta(inputs_embeds=input_embed, output_attentions=output_attentions)[0]
             
-            with open(log_filename, "a") as f:
-                content = f"Outputs: {len(outputs)}\n"
-                f.write(content)
             logits = self.classifier(outputs)
             prob = torch.softmax(logits, dim=-1)
             if labels is not None:
