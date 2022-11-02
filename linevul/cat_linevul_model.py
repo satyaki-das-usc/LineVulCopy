@@ -64,7 +64,7 @@ class Model(RobertaForSequenceClassification):
                 outputs = self.encoder.roberta(inputs_embeds=input_embed, output_attentions=output_attentions)[0]
             
             with open(log_filename, "a") as f:
-                content = f"Outputs: {type(outputs)}\n"
+                content = f"Outputs: {outputs}\n"
                 f.write(content)
             logits = self.classifier(outputs)
             prob = torch.softmax(logits, dim=-1)
