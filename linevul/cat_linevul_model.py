@@ -31,7 +31,7 @@ class Model(RobertaForSequenceClassification):
         self.args = args
     
         
-    def forward(self, input_embed=None, labels=None, output_attentions=False, input_ids=None):
+    def forward(self, input_embed=None, labels=None, output_attentions=False, input_ids=None, class_weights=None):
         if output_attentions:
             if input_ids is not None:
                 outputs = self.encoder.roberta(input_ids, attention_mask=input_ids.ne(1), output_attentions=output_attentions)
@@ -54,10 +54,11 @@ class Model(RobertaForSequenceClassification):
                 outputs = self.encoder.roberta(inputs_embeds=input_embed, output_attentions=output_attentions)[0]
             
             logits = self.classifier(outputs)
-            prob = torch.softmax(logits, dim=-1)
-            if labels is not None:
-                loss_fct = CrossEntropyLoss()
+            y_pred_softmax = torch.log_softmax(logits, dim=1)
+            _, y_pred_tags = torch.max(y_pred_softmax, dim=1)
+            if labels is not None and class_weights is not None:
+                loss_fct = CrossEntropyLoss(weight=class_weights.to(self.args["device"]))
                 loss = loss_fct(logits, labels)
-                return loss, prob
+                return loss, y_pred_tags
             else:
                 return prob
