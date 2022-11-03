@@ -54,7 +54,7 @@ class Model(RobertaForSequenceClassification):
                 outputs = self.encoder.roberta(inputs_embeds=input_embed, output_attentions=output_attentions)[0]
             
             logits = self.classifier(outputs)
-            y_pred_softmax = torch.log_softmax(logits, dim=1)
+            y_pred_softmax = torch.softmax(logits, dim=1)
             _, y_pred_tags = torch.max(y_pred_softmax, dim=1)
             if labels is not None and class_weights is not None:
                 loss_fct = CrossEntropyLoss(weight=class_weights.to(self.args["device"]))
