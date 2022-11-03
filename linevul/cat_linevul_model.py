@@ -61,4 +61,4 @@ class Model(RobertaForSequenceClassification):
                 loss = loss_fct(logits, labels)
                 return loss, y_pred_tags
             else:
-                return prob
+                return y_pred_tags
