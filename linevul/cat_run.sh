@@ -74,12 +74,12 @@ PYTHONPATH="." python cat_linevul_main.py \
     --tokenizer_name=microsoft/codebert-base \
     --model_name_or_path=microsoft/codebert-base \
     --do_test \
-    --test_data_file=../data/cat/cat_test.csv \
+    --test_data_file=../data/cat/cat_boost_test.csv \
     --block_size 512 \
     --eval_batch_size 256 \
     --write_raw_preds \
     --do_train \
     --do_eval \
     --epochs 1 \
-    --train_data_file=../data/cat/cat_train.csv \
-    --eval_data_file=../data/cat/cat_val.csv
+    --train_data_file=../data/cat/cat_boost_train.csv \
+    --eval_data_file=../data/cat/cat_boost_val.csv
