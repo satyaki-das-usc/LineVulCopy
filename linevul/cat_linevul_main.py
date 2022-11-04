@@ -13,7 +13,7 @@ from datetime import datetime
 
 from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score
 from sklearn.metrics import auc
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler, SequentialSampler
 from tokenizers import Tokenizer
 
