@@ -186,7 +186,7 @@ def train(args, train_dataset, train_sampler, class_weights, model, tokenizer, e
                 avg_loss=round(np.exp((tr_loss - logging_loss) /(global_step- tr_nb)),4)
 
                 if global_step % args.save_steps == 0:
-                    results = evaluate(args, model, tokenizer, eval_dataset, curr_timestamp, eval_when_training=True)    
+                    results = evaluate(args, model, tokenizer, eval_dataset, class_weights, curr_timestamp, eval_when_training=True)    
                     
                     # Save model checkpoint
                     if results['eval_f1']>best_f1:
@@ -334,6 +334,10 @@ def test(args, model, tokenizer, test_dataset, class_weights, curr_timestamp):
 
 def get_cat_parameters(args):
     train_df = pd.read_csv(args.train_data_file)
+    vul_df = train_df.query("target != 0")
+    nonvul_df = train_df.query("target == 0")
+
+    train_df = vul_df.append(nonvul_df.iloc[0])
     classes = train_df["target"].tolist()
 
     torch_classes = torch.tensor(classes)
