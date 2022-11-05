@@ -334,10 +334,6 @@ def test(args, model, tokenizer, test_dataset, class_weights, curr_timestamp):
 
 def get_cat_parameters(args):
     train_df = pd.read_csv(args.train_data_file)
-    vul_df = train_df.query("target != 0")
-    nonvul_df = train_df.query("target == 0")
-
-    train_df = vul_df.append(nonvul_df.iloc[0])
     classes = train_df["target"].tolist()
 
     torch_classes = torch.tensor(classes)
