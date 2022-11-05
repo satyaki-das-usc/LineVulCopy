@@ -57,7 +57,7 @@ class Model(RobertaForSequenceClassification):
             y_pred_softmax = torch.softmax(logits, dim=1)
             _, y_pred_tags = torch.max(y_pred_softmax, dim=1)
             if labels is not None and class_weights is not None:
-                loss_fct = CrossEntropyLoss(weight=class_weights.to(self.args["device"]))
+                loss_fct = CrossEntropyLoss(weight=class_weights.to(self.args.device))
                 loss = loss_fct(logits, labels)
                 return loss, y_pred_tags
             else:
