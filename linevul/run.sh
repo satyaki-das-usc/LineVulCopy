@@ -67,6 +67,23 @@
 #     --train_data_file=../data/devign/devign_train.csv \
 #     --eval_data_file=../data/devign/devign_val.csv \
 
+# PYTHONPATH="." python linevul_main.py \
+#     --model_name=12heads_linevul_model.bin \
+#     --output_dir=./saved_models \
+#     --model_type=roberta \
+#     --tokenizer_name=microsoft/codebert-base \
+#     --model_name_or_path=microsoft/codebert-base \
+#     --do_test \
+#     --test_data_file=../data/cat/cat_test.csv \
+#     --block_size 512 \
+#     --eval_batch_size 256 \
+#     --write_raw_preds \
+#     --do_train \
+#     --do_eval \
+#     --epochs 1 \
+#     --train_data_file=../data/cat/cat_train.csv \
+#     --eval_data_file=../data/cat/cat_val.csv
+
 PYTHONPATH="." python linevul_main.py \
     --model_name=12heads_linevul_model.bin \
     --output_dir=./saved_models \
@@ -74,12 +91,43 @@ PYTHONPATH="." python linevul_main.py \
     --tokenizer_name=microsoft/codebert-base \
     --model_name_or_path=microsoft/codebert-base \
     --do_test \
-    --test_data_file=../data/cat/cat_test.csv \
+    --test_data_file=../data/big-vul_dataset/test.csv \
     --block_size 512 \
     --eval_batch_size 256 \
-    --write_raw_preds \
-    --do_train \
-    --do_eval \
-    --epochs 1 \
-    --train_data_file=../data/cat/cat_train.csv \
-    --eval_data_file=../data/cat/cat_val.csv
+    --write_raw_preds
+
+PYTHONPATH="." python linevul_main.py \
+    --model_name=12heads_linevul_model.bin \
+    --output_dir=./saved_models \
+    --model_type=roberta \
+    --tokenizer_name=microsoft/codebert-base \
+    --model_name_or_path=microsoft/codebert-base \
+    --do_test \
+    --test_data_file=../data/big-vul_dataset/cwe119.csv \
+    --block_size 512 \
+    --eval_batch_size 256 \
+    --write_raw_preds
+
+PYTHONPATH="." python linevul_main.py \
+    --model_name=12heads_linevul_model.bin \
+    --output_dir=./saved_models \
+    --model_type=roberta \
+    --tokenizer_name=microsoft/codebert-base \
+    --model_name_or_path=microsoft/codebert-base \
+    --do_test \
+    --test_data_file=../data/big-vul_dataset/cwe416.csv \
+    --block_size 512 \
+    --eval_batch_size 256 \
+    --write_raw_preds
+
+PYTHONPATH="." python linevul_main.py \
+    --model_name=12heads_linevul_model.bin \
+    --output_dir=./saved_models \
+    --model_type=roberta \
+    --tokenizer_name=microsoft/codebert-base \
+    --model_name_or_path=microsoft/codebert-base \
+    --do_test \
+    --test_data_file=../data/big-vul_dataset/cwe787.csv \
+    --block_size 512 \
+    --eval_batch_size 256 \
+    --write_raw_preds

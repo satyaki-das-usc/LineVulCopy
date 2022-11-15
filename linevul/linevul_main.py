@@ -243,9 +243,9 @@ def evaluate(args, model, tokenizer, eval_dataset, curr_timestamp, eval_when_tra
     best_threshold = 0.5
     best_f1 = 0
     y_preds = logits[:,1]>best_threshold
-    recall = recall_score(y_trues, y_preds, average="micro")
-    precision = precision_score(y_trues, y_preds, average="micro")
-    f1 = f1_score(y_trues, y_preds, average="micro")
+    recall = recall_score(y_trues, y_preds)
+    precision = precision_score(y_trues, y_preds)
+    f1 = f1_score(y_trues, y_preds)
     result = {
         "eval_recall": float(recall),
         "eval_precision": float(precision),
@@ -299,9 +299,9 @@ def test(args, model, tokenizer, test_dataset, curr_timestamp, best_threshold=0.
     y_trues = np.concatenate(y_trues, 0)
     y_preds = logits[:, 1] > best_threshold
     acc = accuracy_score(y_trues, y_preds)
-    recall = recall_score(y_trues, y_preds, average="micro")
-    precision = precision_score(y_trues, y_preds, average="micro")
-    f1 = f1_score(y_trues, y_preds, average="micro")
+    recall = recall_score(y_trues, y_preds)
+    precision = precision_score(y_trues, y_preds)
+    f1 = f1_score(y_trues, y_preds)
     result = {
         "test_accuracy": float(acc),
         "test_recall": float(recall),
@@ -618,7 +618,8 @@ def generate_result_df(logits, y_trues, y_preds, args):
 def write_raw_preds_csv(args, y_preds):
     df = pd.read_csv(args.test_data_file)
     df["raw_preds"] = y_preds
-    df.to_csv("./results/raw_preds.csv", index=False)
+    test_filename = args.test_data_file.split("/")[-1]
+    df.to_csv(f"./results/raw_preds_{test_filename}", index=False)
 
 def get_num_lines(func):
     func = func.split("\n")
@@ -1267,7 +1268,7 @@ def main():
     # Set seed
     set_seed(args)
     config = RobertaConfig.from_pretrained(args.config_name if args.config_name else args.model_name_or_path)
-    config.num_labels = 87
+    config.num_labels = 1
     config.num_attention_heads = args.num_attention_heads
 
     if args.use_word_level_tokenizer:
