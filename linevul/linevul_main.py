@@ -66,7 +66,8 @@ class TextDataset(Dataset):
         elif file_type == "test":
             file_path = args.test_data_file
         self.examples = []
-        df = pd.read_csv(file_path)
+        
+        df = pd.read_parquet(file_path) if args.is_parquet else pd.read_csv(file_path)
         funcs = df["processed_func"].tolist()
         labels = df["target"].tolist()
         for i in tqdm(range(len(funcs))):
@@ -226,7 +227,7 @@ def evaluate(args, model, tokenizer, eval_dataset, curr_timestamp, eval_when_tra
     eval_loss = 0.0
     nb_eval_steps = 0
     model.eval()
-    logits=[]  
+    logits=[]
     y_trues=[]
     for batch in eval_dataloader:
         (inputs_ids, labels)=[x.to(args.device) for x in batch]
@@ -474,7 +475,7 @@ def test(args, model, tokenizer, test_dataset, curr_timestamp, best_threshold=0.
             # localization part
             dataloader = DataLoader(test_dataset, sampler=test_sampler, batch_size=1, num_workers=0)
             # prepare data for line-level reasoning
-            df = pd.read_csv(args.test_data_file)
+            df = pd.read_parquet(args.test_data_file) if args.is_parquet else pd.read_csv(args.test_data_file)
             # stats for line-level evaluation
             top_k_locs = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
             top_k_constant = [args.top_k_constant]
@@ -594,7 +595,7 @@ def test(args, model, tokenizer, test_dataset, curr_timestamp, best_threshold=0.
             #    pickle.dump(line_level_results, f)
 
 def generate_result_df(logits, y_trues, y_preds, args):
-    df = pd.read_csv(args.test_data_file)
+    df = pd.read_parquet(args.test_data_file) if args.is_parquet else pd.read_csv(args.test_data_file)
     all_num_lines = []
     all_processed_func = df["processed_func"].tolist()
     for func in all_processed_func:
@@ -616,10 +617,10 @@ def generate_result_df(logits, y_trues, y_preds, args):
                          "flaw_line": df["flaw_line"], "processed_func": df["processed_func"]})
 
 def write_raw_preds_csv(args, y_preds):
-    df = pd.read_csv(args.test_data_file)
+    df = pd.read_parquet(args.test_data_file) if args.is_parquet else pd.read_csv(args.test_data_file)
     df["raw_preds"] = y_preds
     test_filename = args.test_data_file.split("/")[-1]
-    df.to_csv(f"./results/raw_preds_{test_filename}", index=False)
+    df.to_parquet(f"./results/raw_preds_{test_filename}", index=False) if args.is_parquet else df.to_csv(f"./results/raw_preds_{test_filename}", index=False)
 
 def get_num_lines(func):
     func = func.split("\n")
@@ -1200,6 +1201,8 @@ def main():
                         help="Whether to run eval on the dev set.")
     parser.add_argument("--do_test", action='store_true',
                         help="Whether to run eval on the dev set.")
+    parser.add_argument("--is_parquet", action='store_true',
+                        help="Whether the test file is parquet.")
 
     parser.add_argument("--evaluate_during_training", action='store_true',
                         help="Run evaluation during training at each logging step.")
