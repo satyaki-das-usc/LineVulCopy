@@ -5,6 +5,6 @@ torch
 numpy
 tqdm
 # pickle
-sklearn
+scikit-learn
 pandas
 tokenizers
