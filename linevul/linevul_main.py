@@ -44,7 +44,10 @@ from captum.attr import LayerIntegratedGradients, DeepLift, DeepLiftShap, Gradie
 # word-level tokenizer
 from tokenizers import Tokenizer
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    format='%(asctime)s [%(levelname)s] %(name)s - %(message)s',
+    level=logging.INFO,
+    force = True)
 logger = logging.getLogger(__name__)
 
 
